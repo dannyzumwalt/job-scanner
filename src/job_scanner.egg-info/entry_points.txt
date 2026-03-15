@@ -1,2 +1,0 @@
-[console_scripts]
-job-scanner = job_scanner.main:run
