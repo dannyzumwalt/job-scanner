@@ -99,7 +99,15 @@ def test_scan_report_and_diff_flow(tmp_path: Path, monkeypatch) -> None:
         return {}
 
     monkeypatch.setattr("job_scanner.http_client.HttpFetcher.get_json", first_get_json)
+    monkeypatch.setattr(
+        "job_scanner.http_client.HttpFetcher.get_json_with_meta",
+        lambda self, url, headers=None: (first_get_json(self, url, headers), 200),
+    )
     monkeypatch.setattr("job_scanner.http_client.HttpFetcher.post_json", lambda self, url, payload, headers=None: {})
+    monkeypatch.setattr(
+        "job_scanner.http_client.HttpFetcher.post_json_with_meta",
+        lambda self, url, payload, headers=None: ({}, 200),
+    )
 
     config = load_app_config(root)
     result_one = run_scan(config, generate_report=True)
@@ -128,6 +136,10 @@ def test_scan_report_and_diff_flow(tmp_path: Path, monkeypatch) -> None:
         return {}
 
     monkeypatch.setattr("job_scanner.http_client.HttpFetcher.get_json", second_get_json)
+    monkeypatch.setattr(
+        "job_scanner.http_client.HttpFetcher.get_json_with_meta",
+        lambda self, url, headers=None: (second_get_json(self, url, headers), 200),
+    )
 
     result_two = run_scan(config, generate_report=True)
     assert result_two["scan_id"] > result_one["scan_id"]

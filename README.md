@@ -4,12 +4,14 @@ A local-first, CLI-first job listing scanner that ingests jobs from structured s
 
 ## What it does
 
-- Pulls job listings from configurable source adapters (Greenhouse, Lever, Ashby best-effort in MVP).
+- Pulls job listings from configurable source adapters (Greenhouse, Lever, Ashby, generic JSON, RSS).
+- Supports manual CSV/JSON import flow for aggregator exports.
 - Stores raw payloads and normalized records in SQLite.
 - Maintains scan history and tracks first-seen/last-seen jobs.
 - Scores jobs on a 0-100 weighted model and exposes a report-friendly 0-10 score.
 - Exports ranked outputs to Markdown, CSV, and JSON.
 - Supports scan diffs (`new`, `removed`, `changed`) against the previous or timestamp baseline.
+- Tracks per-source run health (status, HTTP code, parse count, latency, error class/message).
 
 ## Project layout
 
@@ -55,31 +57,43 @@ Important knobs:
 - remote/DFW/travel preferences
 - include/exclude keywords
 - scoring weights and penalties/boosts
+- scan profiles (`quick` and `deep`)
+- report targets (top matches/potential/reject limits and trend lookback)
 - source enablement and URLs
 
 Source config supports both:
 
 - `url`: board URL (for slug-based API derivation)
 - `api_url` (optional): explicit API endpoint override when board URL does not map cleanly
+- `format`: `auto|greenhouse|lever|ashby|json|rss|html`
+- `parser_template`: per-source field mapping overrides
+- `priority`, `expected_status`: scheduling and validation controls
 
 ## CLI usage
 
 Run via module:
 
 ```bash
-python -m job_scanner scan
+python -m job_scanner scan --profile deep
+python -m job_scanner scan --profile quick
+python -m job_scanner sources validate --profile deep
+python -m job_scanner import --file ./exports/linkedin_jobs.csv --format csv
 python -m job_scanner report
 python -m job_scanner list --top 25
 python -m job_scanner diff --since last
+python -m job_scanner cleanup --keep-scans 8 --keep-reports 12
 ```
 
 Or via installed script:
 
 ```bash
-job-scanner scan
+job-scanner scan --profile deep
+job-scanner sources validate
+job-scanner import --file ./exports/jobs.json --format json
 job-scanner report
 job-scanner list --top 25
 job-scanner diff --since 2026-03-15T12:00:00
+job-scanner cleanup --keep-scans 8 --keep-reports 12
 ```
 
 ## Output files
@@ -87,7 +101,7 @@ job-scanner diff --since 2026-03-15T12:00:00
 Each scan writes:
 
 - Raw snapshot: `data/raw/scan_<id>_raw.jsonl`
-- Database rows: `raw_jobs`, `normalized_jobs`, `score_results`, `scan_jobs`
+- Database rows: `raw_jobs`, `normalized_jobs`, `score_results`, `scan_jobs`, `source_runs`, `import_batches`
 - Reports:
   - `data/reports/latest_report.md`
   - `data/reports/latest_report.csv`
@@ -107,10 +121,25 @@ If a source returns 404 in scan output:
 2. Add a verified `api_url` if available.
 3. Re-run `python -m job_scanner scan`.
 
-## Known limitations (MVP)
+## Weekly automation (local)
 
-- Ashby connector is best-effort and may need per-company adjustments.
-- Generic HTML/RSS connector is intentionally deferred.
+Example weekly deep scan via cron (Sunday at 07:00 local time):
+
+```cron
+0 7 * * 0 cd /Users/danny/Projects/job-scanner && /bin/zsh -lc 'source .venv/bin/activate && python -m job_scanner scan --profile deep'
+```
+
+Recommended weekly sequence:
+
+1. `python -m job_scanner sources validate --profile deep`
+2. `python -m job_scanner scan --profile deep`
+3. `python -m job_scanner diff --since last`
+4. `python -m job_scanner cleanup --keep-scans 8 --keep-reports 12`
+
+## Known limitations
+
+- Ashby boards may require per-company slug verification.
+- Generic HTML scraping remains opt-in and minimal by design.
 - Compensation parsing is conservative and estimate confidence can be low when ranges are absent.
 - Material change detection uses content hash and score delta threshold.
 - Some company job board URLs do not expose stable public APIs; these sources may require explicit `api_url` or disabling.
