@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from .migrations import CURRENT_SCHEMA_VERSION, migrate
 from .models import MatchCategory, NormalizedJob, ScoreResult, ScanDiff, SourceConfig
 
 
@@ -29,128 +30,53 @@ class Storage:
         self.conn.close()
 
     def init_db(self) -> None:
-        self.conn.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS sources (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT UNIQUE NOT NULL,
-                type TEXT NOT NULL,
-                url TEXT NOT NULL,
-                enabled INTEGER NOT NULL DEFAULT 1,
-                notes TEXT,
-                last_status TEXT,
-                last_error TEXT,
-                last_fetched_at TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            );
+        migrate(self.conn)
 
-            CREATE TABLE IF NOT EXISTS scans (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                started_at TEXT NOT NULL,
-                completed_at TEXT,
-                status TEXT NOT NULL,
-                total_raw INTEGER NOT NULL DEFAULT 0,
-                total_normalized INTEGER NOT NULL DEFAULT 0,
-                total_scored INTEGER NOT NULL DEFAULT 0,
-                inactive_marked INTEGER NOT NULL DEFAULT 0,
-                error TEXT
-            );
+    def schema_version(self) -> int:
+        row = self.conn.execute("SELECT MAX(version) AS version FROM schema_migrations").fetchone()
+        if not row or row["version"] is None:
+            return 0
+        return int(row["version"])
 
-            CREATE TABLE IF NOT EXISTS raw_jobs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                scan_id INTEGER NOT NULL REFERENCES scans(id) ON DELETE CASCADE,
-                source_name TEXT NOT NULL,
-                source_type TEXT NOT NULL,
-                source_url TEXT NOT NULL,
-                source_job_id TEXT NOT NULL,
-                payload_json TEXT NOT NULL,
-                fetched_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS normalized_jobs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                dedupe_key TEXT UNIQUE NOT NULL,
-                source_name TEXT NOT NULL,
-                source_type TEXT NOT NULL,
-                source_job_id TEXT NOT NULL,
-                source_url TEXT NOT NULL,
-                requisition_id TEXT,
-                apply_url TEXT,
-                company TEXT NOT NULL,
-                title TEXT NOT NULL,
-                normalized_title TEXT NOT NULL,
-                description TEXT NOT NULL,
-                location TEXT,
-                normalized_location TEXT,
-                country TEXT,
-                is_remote INTEGER NOT NULL,
-                is_hybrid INTEGER NOT NULL,
-                is_onsite INTEGER NOT NULL,
-                dfw_match INTEGER NOT NULL,
-                us_match INTEGER NOT NULL,
-                travel_required INTEGER NOT NULL,
-                travel_percent INTEGER,
-                base_min INTEGER,
-                base_max INTEGER,
-                bonus INTEGER,
-                equity INTEGER,
-                estimated_total_comp_min INTEGER,
-                estimated_total_comp_max INTEGER,
-                compensation_confidence REAL NOT NULL,
-                role_family_tags_json TEXT NOT NULL,
-                seniority_hints_json TEXT NOT NULL,
-                duplicate_count INTEGER NOT NULL DEFAULT 1,
-                job_hash TEXT NOT NULL,
-                first_seen TEXT NOT NULL,
-                last_seen TEXT NOT NULL,
-                is_active INTEGER NOT NULL DEFAULT 1,
-                last_scan_id INTEGER NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS score_results (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                scan_id INTEGER NOT NULL REFERENCES scans(id) ON DELETE CASCADE,
-                normalized_job_id INTEGER NOT NULL REFERENCES normalized_jobs(id) ON DELETE CASCADE,
-                total_score REAL NOT NULL,
-                display_score REAL NOT NULL,
-                category TEXT NOT NULL,
-                recommended_action TEXT NOT NULL,
-                dimension_scores_json TEXT NOT NULL,
-                reasons_json TEXT NOT NULL,
-                concerns_json TEXT NOT NULL,
-                created_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS scan_jobs (
-                scan_id INTEGER NOT NULL REFERENCES scans(id) ON DELETE CASCADE,
-                normalized_job_id INTEGER NOT NULL REFERENCES normalized_jobs(id) ON DELETE CASCADE,
-                total_score REAL NOT NULL,
-                category TEXT NOT NULL,
-                recommended_action TEXT NOT NULL,
-                job_hash TEXT NOT NULL,
-                is_new INTEGER NOT NULL,
-                PRIMARY KEY (scan_id, normalized_job_id)
-            );
-            """
-        )
-        self.conn.commit()
+    def schema_is_current(self) -> bool:
+        return self.schema_version() >= CURRENT_SCHEMA_VERSION
 
     def upsert_sources(self, sources: list[SourceConfig]) -> None:
         now = datetime.now(UTC).isoformat()
         for source in sources:
             self.conn.execute(
                 """
-                INSERT INTO sources (name, type, url, enabled, notes, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO sources (
+                    name, type, url, api_url, format, parser_template_json, priority, expected_status,
+                    enabled, notes, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(name) DO UPDATE SET
                     type = excluded.type,
                     url = excluded.url,
+                    api_url = excluded.api_url,
+                    format = excluded.format,
+                    parser_template_json = excluded.parser_template_json,
+                    priority = excluded.priority,
+                    expected_status = excluded.expected_status,
                     enabled = excluded.enabled,
                     notes = excluded.notes,
                     updated_at = excluded.updated_at
                 """,
-                (source.name, source.type.value, source.url, int(source.enabled), source.notes, now, now),
+                (
+                    source.name,
+                    source.type.value,
+                    source.url,
+                    source.api_url,
+                    source.format.value,
+                    json.dumps(source.parser_template or {}, sort_keys=True),
+                    source.priority,
+                    source.expected_status,
+                    int(source.enabled),
+                    source.notes,
+                    now,
+                    now,
+                ),
             )
         self.conn.commit()
 
@@ -211,6 +137,68 @@ class Storage:
         )
         self.conn.commit()
 
+    def get_latest_failed_scan_id(self) -> int | None:
+        row = self.conn.execute(
+            "SELECT id FROM scans WHERE status = 'failed' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        return int(row["id"]) if row else None
+
+    def get_successful_sources_for_scan(self, scan_id: int) -> set[str]:
+        rows = self.conn.execute(
+            "SELECT source_name FROM source_runs WHERE scan_id = ? AND status = 'success'",
+            (scan_id,),
+        ).fetchall()
+        return {str(row["source_name"]) for row in rows}
+
+    def insert_source_runs(self, scan_id: int, source_runs: list[dict[str, Any]]) -> None:
+        if not source_runs:
+            return
+        rows = [
+            (
+                scan_id,
+                item["source_name"],
+                item["source_type"],
+                item["endpoint"],
+                item["status"],
+                int(item.get("preflight_ok", False)),
+                item.get("http_status"),
+                int(item.get("raw_count", 0)),
+                int(item.get("normalized_count", 0)),
+                int(item.get("parse_count", 0)),
+                item.get("error_class"),
+                item.get("error_message"),
+                int(item.get("latency_ms", 0)),
+                item["started_at"],
+                item["completed_at"],
+            )
+            for item in source_runs
+        ]
+        self.conn.executemany(
+            """
+            INSERT INTO source_runs (
+                scan_id, source_name, source_type, endpoint, status, preflight_ok, http_status,
+                raw_count, normalized_count, parse_count, error_class, error_message, latency_ms,
+                started_at, completed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+        self.conn.commit()
+
+    def get_source_runs(self, scan_id: int) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            """
+            SELECT source_name, source_type, endpoint, status, preflight_ok, http_status,
+                   raw_count, normalized_count, parse_count, error_class, error_message, latency_ms,
+                   started_at, completed_at
+              FROM source_runs
+             WHERE scan_id = ?
+             ORDER BY source_name ASC
+            """,
+            (scan_id,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
     def insert_raw_jobs(self, scan_id: int, raw_jobs: list[dict[str, Any]]) -> None:
         if not raw_jobs:
             return
@@ -242,11 +230,11 @@ class Storage:
 
         for job in jobs:
             existing = self.conn.execute(
-                "SELECT id, first_seen FROM normalized_jobs WHERE dedupe_key = ?",
+                "SELECT id FROM normalized_jobs WHERE dedupe_key = ?",
                 (job.dedupe_key,),
             ).fetchone()
 
-            update_payload = (
+            common_payload = (
                 job.source_name,
                 job.source_type.value,
                 job.source_job_id,
@@ -278,10 +266,10 @@ class Storage:
                 json.dumps(job.seniority_hints),
                 job.duplicate_count,
                 job.job_hash,
-                now,
-                1,
-                scan_id,
-                job.dedupe_key,
+                job.ingest_mode,
+                job.import_batch_id,
+                json.dumps(job.data_quality_flags),
+                job.parse_confidence,
             )
 
             if existing:
@@ -319,53 +307,19 @@ class Storage:
                            seniority_hints_json = ?,
                            duplicate_count = ?,
                            job_hash = ?,
+                           ingest_mode = ?,
+                           import_batch_id = ?,
+                           data_quality_flags_json = ?,
+                           parse_confidence = ?,
                            last_seen = ?,
                            is_active = ?,
                            last_scan_id = ?
                      WHERE dedupe_key = ?
                     """,
-                    update_payload,
+                    (*common_payload, now, 1, scan_id, job.dedupe_key),
                 )
                 stored.append(StoredJob(job_id=int(existing["id"]), normalized=job, is_new=False))
             else:
-                insert_payload = (
-                    job.source_name,
-                    job.source_type.value,
-                    job.source_job_id,
-                    job.source_url,
-                    job.requisition_id,
-                    job.apply_url,
-                    job.company,
-                    job.title,
-                    job.normalized_title,
-                    job.description,
-                    job.location,
-                    job.normalized_location,
-                    job.country,
-                    int(job.is_remote),
-                    int(job.is_hybrid),
-                    int(job.is_onsite),
-                    int(job.dfw_match),
-                    int(job.us_match),
-                    int(job.travel_required),
-                    job.travel_percent,
-                    job.base_min,
-                    job.base_max,
-                    job.bonus,
-                    job.equity,
-                    job.estimated_total_comp_min,
-                    job.estimated_total_comp_max,
-                    job.compensation_confidence,
-                    json.dumps(job.role_family_tags),
-                    json.dumps(job.seniority_hints),
-                    job.duplicate_count,
-                    job.job_hash,
-                    now,
-                    now,
-                    1,
-                    scan_id,
-                    job.dedupe_key,
-                )
                 self.conn.execute(
                     """
                     INSERT INTO normalized_jobs (
@@ -374,17 +328,19 @@ class Storage:
                         is_remote, is_hybrid, is_onsite, dfw_match, us_match, travel_required, travel_percent,
                         base_min, base_max, bonus, equity, estimated_total_comp_min, estimated_total_comp_max,
                         compensation_confidence, role_family_tags_json, seniority_hints_json, duplicate_count,
-                        job_hash, first_seen, last_seen, is_active, last_scan_id, dedupe_key
+                        job_hash, ingest_mode, import_batch_id, data_quality_flags_json, parse_confidence,
+                        first_seen, last_seen, is_active, last_scan_id, dedupe_key
                     ) VALUES (
                         ?, ?, ?, ?, ?, ?,
                         ?, ?, ?, ?, ?, ?, ?,
                         ?, ?, ?, ?, ?, ?, ?,
                         ?, ?, ?, ?, ?, ?,
                         ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?, ?
+                        ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?
                     )
                     """,
-                    insert_payload,
+                    (*common_payload, now, now, 1, scan_id, job.dedupe_key),
                 )
                 job_id = int(self.conn.execute("SELECT last_insert_rowid()").fetchone()[0])
                 stored.append(StoredJob(job_id=job_id, normalized=job, is_new=True))
@@ -392,7 +348,7 @@ class Storage:
         self.conn.commit()
         return stored
 
-    def mark_inactive_jobs(self, scan_id: int, active_dedupe_keys: list[str]) -> int:
+    def mark_inactive_jobs(self, scan_id: int, active_dedupe_keys: list[str], ingest_mode: str = "live") -> int:
         placeholders = ",".join(["?"] * len(active_dedupe_keys))
         if active_dedupe_keys:
             query = f"""
@@ -400,12 +356,16 @@ class Storage:
                    SET is_active = 0,
                        last_scan_id = ?
                  WHERE is_active = 1
+                   AND ingest_mode = ?
                    AND dedupe_key NOT IN ({placeholders})
             """
-            args = [scan_id, *active_dedupe_keys]
+            args = [scan_id, ingest_mode, *active_dedupe_keys]
         else:
-            query = "UPDATE normalized_jobs SET is_active = 0, last_scan_id = ? WHERE is_active = 1"
-            args = [scan_id]
+            query = (
+                "UPDATE normalized_jobs SET is_active = 0, last_scan_id = ? "
+                "WHERE is_active = 1 AND ingest_mode = ?"
+            )
+            args = [scan_id, ingest_mode]
 
         cur = self.conn.execute(query, args)
         self.conn.commit()
@@ -465,6 +425,34 @@ class Storage:
             snapshot_rows,
         )
 
+        self.conn.commit()
+
+    def create_import_batch(self, source_file: str, import_format: str) -> int:
+        now = datetime.now(UTC).isoformat()
+        cur = self.conn.execute(
+            """
+            INSERT INTO import_batches (created_at, source_file, import_format, status)
+            VALUES (?, ?, ?, ?)
+            """,
+            (now, source_file, import_format, "running"),
+        )
+        self.conn.commit()
+        return int(cur.lastrowid)
+
+    def complete_import_batch(self, batch_id: int, row_count: int) -> None:
+        now = datetime.now(UTC).isoformat()
+        self.conn.execute(
+            "UPDATE import_batches SET completed_at = ?, row_count = ?, status = ? WHERE id = ?",
+            (now, row_count, "completed", batch_id),
+        )
+        self.conn.commit()
+
+    def fail_import_batch(self, batch_id: int, error: str) -> None:
+        now = datetime.now(UTC).isoformat()
+        self.conn.execute(
+            "UPDATE import_batches SET completed_at = ?, status = ?, error = ? WHERE id = ?",
+            (now, "failed", error, batch_id),
+        )
         self.conn.commit()
 
     def get_latest_scan_id(self) -> int | None:
@@ -537,6 +525,10 @@ class Storage:
                 nj.compensation_confidence,
                 nj.role_family_tags_json,
                 nj.seniority_hints_json,
+                nj.ingest_mode,
+                nj.import_batch_id,
+                nj.data_quality_flags_json,
+                nj.parse_confidence,
                 nj.duplicate_count,
                 nj.job_hash,
                 nj.first_seen,
@@ -567,6 +559,7 @@ class Storage:
             item["dimension_scores"] = json.loads(item.pop("dimension_scores_json") or "{}")
             item["reasons"] = json.loads(item.pop("reasons_json") or "[]")
             item["concerns"] = json.loads(item.pop("concerns_json") or "[]")
+            item["data_quality_flags"] = json.loads(item.pop("data_quality_flags_json") or "[]")
             item["category"] = MatchCategory(item["category"])
             item["is_new"] = bool(item["is_new"])
             item["is_remote"] = bool(item["is_remote"])
@@ -653,9 +646,67 @@ class Storage:
             changed_jobs=changed,
         )
 
+    def get_recent_completed_scan_ids(self, limit: int = 5) -> list[int]:
+        rows = self.conn.execute(
+            "SELECT id FROM scans WHERE status = 'completed' ORDER BY id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [int(row["id"]) for row in rows]
+
+    def get_market_snapshot(self, scan_id: int) -> dict[str, Any]:
+        row = self.conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN nj.is_remote = 1 THEN 1 ELSE 0 END) AS remote_count,
+                SUM(CASE WHEN nj.dfw_match = 1 THEN 1 ELSE 0 END) AS dfw_count,
+                SUM(CASE WHEN nj.estimated_total_comp_min IS NOT NULL OR nj.estimated_total_comp_max IS NOT NULL THEN 1 ELSE 0 END) AS comp_count,
+                SUM(CASE WHEN sr.category IN ('strong', 'good') THEN 1 ELSE 0 END) AS strong_count
+            FROM score_results sr
+            JOIN normalized_jobs nj ON nj.id = sr.normalized_job_id
+            WHERE sr.scan_id = ?
+            """,
+            (scan_id,),
+        ).fetchone()
+        if not row:
+            return {
+                "scan_id": scan_id,
+                "total": 0,
+                "remote_count": 0,
+                "dfw_count": 0,
+                "comp_count": 0,
+                "strong_count": 0,
+            }
+        return {
+            "scan_id": scan_id,
+            "total": int(row["total"] or 0),
+            "remote_count": int(row["remote_count"] or 0),
+            "dfw_count": int(row["dfw_count"] or 0),
+            "comp_count": int(row["comp_count"] or 0),
+            "strong_count": int(row["strong_count"] or 0),
+        }
+
     def get_scan_summary(self, scan_id: int) -> dict[str, Any]:
         row = self.conn.execute(
             "SELECT * FROM scans WHERE id = ?",
             (scan_id,),
         ).fetchone()
         return dict(row) if row else {}
+
+    def prune_scans(self, keep_scans: int) -> int:
+        if keep_scans < 1:
+            raise ValueError("keep_scans must be >= 1")
+
+        rows = self.conn.execute(
+            "SELECT id FROM scans WHERE status = 'completed' ORDER BY id DESC"
+        ).fetchall()
+        keep_ids = [int(row["id"]) for row in rows[:keep_scans]]
+        prune_ids = [int(row["id"]) for row in rows[keep_scans:]]
+
+        if not prune_ids:
+            return 0
+
+        placeholders = ",".join("?" for _ in prune_ids)
+        self.conn.execute(f"DELETE FROM scans WHERE id IN ({placeholders})", prune_ids)
+        self.conn.commit()
+        return len(prune_ids)

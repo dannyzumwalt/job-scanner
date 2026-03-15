@@ -19,6 +19,20 @@ class SourceType(str, Enum):
     LEVER = "lever"
     ASHBY = "ashby"
     GENERIC = "generic"
+    GENERIC_JSON = "generic_json"
+    RSS = "rss"
+    GENERIC_HTML = "generic_html"
+    IMPORT = "import"
+
+
+class SourceFormat(str, Enum):
+    AUTO = "auto"
+    GREENHOUSE = "greenhouse"
+    LEVER = "lever"
+    ASHBY = "ashby"
+    JSON = "json"
+    RSS = "rss"
+    HTML = "html"
 
 
 class CompensationPreferences(BaseModel):
@@ -85,6 +99,38 @@ class IngestionConfig(BaseModel):
     max_workers: int = 4
 
 
+class ScanProfileSettings(BaseModel):
+    max_sources: int | None = None
+    validate_sources: bool = True
+    resume_enabled: bool = True
+    include_source_types: list[SourceType] = Field(default_factory=list)
+    request_timeout_seconds_override: float | None = None
+
+
+class ScanProfiles(BaseModel):
+    quick: ScanProfileSettings = Field(
+        default_factory=lambda: ScanProfileSettings(
+            max_sources=8,
+            validate_sources=True,
+            resume_enabled=False,
+        )
+    )
+    deep: ScanProfileSettings = Field(
+        default_factory=lambda: ScanProfileSettings(
+            max_sources=None,
+            validate_sources=True,
+            resume_enabled=True,
+        )
+    )
+
+
+class ReportingTargets(BaseModel):
+    top_matches_target: int = 10
+    potential_matches_target: int = 10
+    reject_list_max: int = 30
+    trend_lookback_scans: int = 4
+
+
 class SearchProfile(BaseModel):
     profile_name: str = "default"
     primary_geography: str = "United States"
@@ -94,6 +140,8 @@ class SearchProfile(BaseModel):
     scoring_weights: ScoringWeights = Field(default_factory=ScoringWeights)
     scoring_rules: ScoringRules = Field(default_factory=ScoringRules)
     ingestion: IngestionConfig = Field(default_factory=IngestionConfig)
+    scan_profiles: ScanProfiles = Field(default_factory=ScanProfiles)
+    reporting: ReportingTargets = Field(default_factory=ReportingTargets)
 
 
 class SourceConfig(BaseModel):
@@ -102,6 +150,10 @@ class SourceConfig(BaseModel):
     enabled: bool = True
     url: str
     api_url: str | None = None
+    format: SourceFormat = SourceFormat.AUTO
+    parser_template: dict[str, Any] = Field(default_factory=dict)
+    priority: int = 100
+    expected_status: int = 200
     notes: str = ""
     headers: dict[str, str] = Field(default_factory=dict)
 
@@ -168,6 +220,10 @@ class NormalizedJob(BaseModel):
 
     role_family_tags: list[str] = Field(default_factory=list)
     seniority_hints: list[str] = Field(default_factory=list)
+    ingest_mode: Literal["live", "import"] = "live"
+    import_batch_id: int | None = None
+    data_quality_flags: list[str] = Field(default_factory=list)
+    parse_confidence: float = 1.0
 
     dedupe_key: str
     duplicate_count: int = 1
@@ -210,3 +266,14 @@ class ScanDiff(BaseModel):
     new_jobs: list[dict[str, Any]] = Field(default_factory=list)
     removed_jobs: list[dict[str, Any]] = Field(default_factory=list)
     changed_jobs: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class SourceValidationResult(BaseModel):
+    source_name: str
+    source_type: SourceType
+    endpoint: str
+    ok: bool
+    http_status: int | None = None
+    error_class: str | None = None
+    error: str | None = None
+    latency_ms: int = 0
