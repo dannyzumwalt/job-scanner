@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from job_scanner.config import load_app_config
-from job_scanner.pipeline import run_scan
+from job_scanner.pipeline import run_scan, validate_sources_for_profile
 
 
 def _prepare_tmp_project(tmp_path: Path) -> Path:
@@ -64,11 +64,15 @@ scan_profiles:
   quick:
     max_sources: 5
     validate_sources: true
+    strict_source_validation: true
+    min_healthy_sources: 2
     resume_enabled: false
     include_source_types: []
   deep:
     max_sources: 5
     validate_sources: true
+    strict_source_validation: true
+    min_healthy_sources: 2
     resume_enabled: true
     include_source_types: []
 reporting:
@@ -132,8 +136,32 @@ def test_scan_survives_partial_source_failure(tmp_path: Path, monkeypatch) -> No
 
     assert result["scored_count"] >= 1
     assert "BadSource" in result["source_errors"]
+    assert result["health_gate"]["required_min"] == 2
+    assert result["health_gate"]["healthy_sources"] == 1
+    assert result["health_gate"]["gate_passed"] is False
 
     report_path = Path(result["reports"]["latest_markdown"])
     assert report_path.exists()
     report_text = report_path.read_text(encoding="utf-8")
     assert "## Source Health" in report_text
+    assert "health gate:" in report_text
+
+
+def test_validate_sources_reports_health_gate(tmp_path: Path, monkeypatch) -> None:
+    root = _prepare_tmp_project(tmp_path)
+
+    def fake_get_json_with_meta(self, url, headers=None):
+        _ = self
+        _ = headers
+        if "bad" in url:
+            return {"jobs": []}, 404
+        return {"jobs": []}, 200
+
+    monkeypatch.setattr("job_scanner.http_client.HttpFetcher.get_json_with_meta", fake_get_json_with_meta)
+
+    config = load_app_config(root)
+    bundle = validate_sources_for_profile(config, profile_name="quick", strict=True, min_healthy=2)
+    assert bundle["strict"] is True
+    assert bundle["health_gate"]["required_min"] == 2
+    assert bundle["health_gate"]["healthy_sources"] == 1
+    assert bundle["health_gate"]["gate_passed"] is False

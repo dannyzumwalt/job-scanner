@@ -1,0 +1,164 @@
+{
+  "scan_id": 99,
+  "generated_at": "2026-03-15T19:30:00+00:00",
+  "jobs": [
+    {
+      "scan_id": 99,
+      "normalized_job_id": 1,
+      "title": "Principal Infrastructure Analytics Engineer",
+      "company": "ExampleCo",
+      "location": "Remote - United States",
+      "is_remote": true,
+      "is_hybrid": false,
+      "is_onsite": false,
+      "ingest_mode": "live",
+      "parse_confidence": 0.92,
+      "estimated_total_comp_min": 340000,
+      "estimated_total_comp_max": 440000,
+      "total_score": 95.5,
+      "display_score": 9.6,
+      "category": "strong",
+      "recommended_action": "pursue",
+      "apply_url": "https://example.com/jobs/1",
+      "is_new": true,
+      "reasons": "Compensation potential aligns with target band | Infrastructure/reliability signal is strong",
+      "concerns": "Low extraction confidence reduced score"
+    },
+    {
+      "scan_id": 99,
+      "normalized_job_id": 2,
+      "title": "Staff SRE (Remote)",
+      "company": "ExampleCloud",
+      "location": "Remote - United States",
+      "is_remote": true,
+      "is_hybrid": false,
+      "is_onsite": false,
+      "ingest_mode": "live",
+      "parse_confidence": 0.87,
+      "estimated_total_comp_min": 300000,
+      "estimated_total_comp_max": 390000,
+      "total_score": 88.2,
+      "display_score": 8.8,
+      "category": "good",
+      "recommended_action": "pursue",
+      "apply_url": "https://example.com/jobs/2",
+      "is_new": false,
+      "reasons": "Role seniority matches target IC level",
+      "concerns": ""
+    },
+    {
+      "scan_id": 99,
+      "normalized_job_id": 3,
+      "title": "Senior Platform Engineer",
+      "company": "ExampleData",
+      "location": "Dallas, TX",
+      "is_remote": false,
+      "is_hybrid": true,
+      "is_onsite": false,
+      "ingest_mode": "live",
+      "parse_confidence": 0.76,
+      "estimated_total_comp_min": 250000,
+      "estimated_total_comp_max": 320000,
+      "total_score": 68.0,
+      "display_score": 6.8,
+      "category": "possible",
+      "recommended_action": "review manually",
+      "apply_url": "https://example.com/jobs/3",
+      "is_new": true,
+      "reasons": "Role includes meaningful analytics/data responsibilities",
+      "concerns": "Needs deeper manual review"
+    },
+    {
+      "scan_id": 99,
+      "normalized_job_id": 4,
+      "title": "Sales Engineer",
+      "company": "ExampleBiz",
+      "location": "Austin, TX",
+      "is_remote": false,
+      "is_hybrid": false,
+      "is_onsite": true,
+      "ingest_mode": "live",
+      "parse_confidence": 0.9,
+      "estimated_total_comp_min": 140000,
+      "estimated_total_comp_max": 180000,
+      "total_score": 38.0,
+      "display_score": 3.8,
+      "category": "reject",
+      "recommended_action": "reject",
+      "apply_url": "https://example.com/jobs/4",
+      "is_new": false,
+      "reasons": "",
+      "concerns": "Compensation appears below hard floor"
+    }
+  ],
+  "market_notes": {
+    "total_jobs_scanned": 4,
+    "with_listed_compensation": 4,
+    "remote_jobs": 2,
+    "dfw_jobs": 1,
+    "strong_matches": 2,
+    "most_common_titles": [
+      [
+        "Principal Infrastructure Analytics Engineer",
+        1
+      ],
+      [
+        "Staff SRE (Remote)",
+        1
+      ],
+      [
+        "Senior Platform Engineer",
+        1
+      ],
+      [
+        "Sales Engineer",
+        1
+      ]
+    ],
+    "most_common_companies": [
+      [
+        "ExampleCo",
+        1
+      ],
+      [
+        "ExampleCloud",
+        1
+      ],
+      [
+        "ExampleData",
+        1
+      ],
+      [
+        "ExampleBiz",
+        1
+      ]
+    ]
+  },
+  "trend_notes": [
+    "Remote share: 75.0% (+5.0 pts vs prior scan)"
+  ],
+  "source_health": [
+    {
+      "source_name": "ExampleCo",
+      "status": "success",
+      "http_status": 200,
+      "parse_count": 2,
+      "latency_ms": 120
+    },
+    {
+      "source_name": "ExampleCloud",
+      "status": "failed",
+      "http_status": 404,
+      "parse_count": 0,
+      "latency_ms": 95,
+      "error_message": "Not Found"
+    }
+  ],
+  "health_gate": {
+    "strict": true,
+    "healthy_sources": 1,
+    "total_live_sources": 2,
+    "required_min": 2,
+    "gate_passed": false
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "data": {
+    "openings": [
+      {
+        "job": {
+          "uid": "gj-101",
+          "name": "Principal Network Reliability Engineer",
+          "summary": "Remote role focused on SRE, telemetry, and incident response.",
+          "city": "Remote - United States",
+          "apply": "https://example.com/jobs/gj-101",
+          "req": "REQ-101",
+          "pay": {
+            "base_min": 260000,
+            "base_max": 320000,
+            "bonus_percent": 15,
+            "equity": 60000
+          }
+        },
+        "employer": "Example Infra"
+      }
+    ]
+  }
+}

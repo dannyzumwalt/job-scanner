@@ -115,11 +115,13 @@ def test_scan_report_and_diff_flow(tmp_path: Path, monkeypatch) -> None:
     assert result_one["raw_count"] >= 3
     assert result_one["normalized_count"] >= 2
     assert Path(result_one["reports"]["latest_markdown"]).exists()
+    assert "health_gate" in result_one
 
     markdown = Path(result_one["reports"]["latest_markdown"]).read_text(encoding="utf-8")
     assert "## Top Matches" in markdown
     assert "## Potential Matches (Needs Review)" in markdown
     assert "## Rejected / Low Priority" in markdown
+    assert "health gate:" in markdown
 
     def second_get_json(self, url, headers=None):
         _ = self

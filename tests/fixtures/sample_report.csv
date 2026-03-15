@@ -1,0 +1,5 @@
+scan_id,normalized_job_id,title,company,location,is_remote,is_hybrid,is_onsite,ingest_mode,parse_confidence,estimated_total_comp_min,estimated_total_comp_max,total_score,display_score,category,recommended_action,apply_url,is_new,reasons,concerns
+99,1,Principal Infrastructure Analytics Engineer,ExampleCo,Remote - United States,True,False,False,live,0.92,340000,440000,95.5,9.6,strong,pursue,https://example.com/jobs/1,True,Compensation potential aligns with target band | Infrastructure/reliability signal is strong,Low extraction confidence reduced score
+99,2,Staff SRE (Remote),ExampleCloud,Remote - United States,True,False,False,live,0.87,300000,390000,88.2,8.8,good,pursue,https://example.com/jobs/2,False,Role seniority matches target IC level,
+99,3,Senior Platform Engineer,ExampleData,"Dallas, TX",False,True,False,live,0.76,250000,320000,68.0,6.8,possible,review manually,https://example.com/jobs/3,True,Role includes meaningful analytics/data responsibilities,Needs deeper manual review
+99,4,Sales Engineer,ExampleBiz,"Austin, TX",False,False,True,live,0.9,140000,180000,38.0,3.8,reject,reject,https://example.com/jobs/4,False,,Compensation appears below hard floor

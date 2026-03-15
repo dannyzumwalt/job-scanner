@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Example Careers</title>
+    <item>
+      <guid>rss-500</guid>
+      <title>Staff Infrastructure Analytics Engineer</title>
+      <description>Remote, observability and data platform work. Compensation $280k - $360k total.</description>
+      <link>https://example.com/jobs/rss-500</link>
+      <location>Remote - United States</location>
+    </item>
+  </channel>
+</rss>

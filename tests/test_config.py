@@ -12,6 +12,8 @@ def test_load_search_profile_default_file() -> None:
     profile = load_search_profile(ROOT / "config" / "search_profile.yaml")
     assert profile.compensation.target_total_comp_min == 300000
     assert profile.work_preferences.remote_preferred is True
+    assert profile.scan_profiles.deep.strict_source_validation is True
+    assert profile.scan_profiles.deep.min_healthy_sources == 15
 
 
 def test_load_sources_default_file() -> None:
