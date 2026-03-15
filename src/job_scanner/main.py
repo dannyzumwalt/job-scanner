@@ -8,6 +8,7 @@ from rich.console import Console
 from rich.table import Table
 
 from .config import load_app_config
+from .models import SourceType
 from .pipeline import (
     cleanup_data,
     diff_latest_scan,
@@ -17,6 +18,7 @@ from .pipeline import (
     run_scan,
     validate_sources_for_profile,
 )
+from .source_discovery import append_discovered_sources, discover_sources, write_discovered_sources
 
 app = typer.Typer(help="Local-first job listing scanner and scorer")
 sources_app = typer.Typer(help="Source management commands")
@@ -136,6 +138,94 @@ def validate_sources(
         console.print(f"Validation failures: {failures}", style="yellow")
     else:
         console.print("All validated sources are healthy.", style="green")
+
+
+@sources_app.command("discover")
+def discover_sources_command(
+    root: str | None = typer.Option(None, help="Project root path"),
+    limit: int = typer.Option(40, "--limit", help="Maximum discovered sources to return"),
+    min_fit_score: int = typer.Option(35, "--min-fit-score", help="Minimum fit score (0-100)"),
+    source_type: list[SourceType] = typer.Option(
+        [],
+        "--type",
+        help="Filter by source type (greenhouse|lever|ashby|generic_json|rss)",
+    ),
+    include_existing: bool = typer.Option(False, "--include-existing", help="Include sources already in config"),
+    validate: bool = typer.Option(False, "--validate/--no-validate", help="Run endpoint validation for candidates"),
+    strict: bool = typer.Option(False, "--strict", help="Use strict schema checks during validation"),
+    only_healthy: bool = typer.Option(True, "--only-healthy/--all", help="Keep only healthy candidates when validating"),
+    criteria_markdown: str | None = typer.Option(
+        "ai-job-scan.md",
+        "--criteria-markdown",
+        help="Optional markdown file used to enrich discovery keyword matching",
+    ),
+    output: str | None = typer.Option(None, "--output", help="Write discovered sources to a standalone YAML file"),
+    append: bool = typer.Option(False, "--append", help="Append discovered sources to config/sources.yaml"),
+    enable: bool = typer.Option(False, "--enable", help="Set discovered sources enabled=true when writing"),
+) -> None:
+    """Discover and rank additional sources based on profile criteria."""
+    config = _load_config(root)
+
+    criteria_path: Path | None = None
+    if criteria_markdown:
+        candidate = Path(criteria_markdown)
+        criteria_path = candidate if candidate.is_absolute() else Path(config.root_dir) / candidate
+
+    discovered = discover_sources(
+        config,
+        limit=limit,
+        min_fit_score=min_fit_score,
+        include_types=set(source_type) if source_type else None,
+        include_existing=include_existing,
+        validate_endpoints=validate,
+        strict_validation=strict,
+        only_healthy=only_healthy,
+        criteria_markdown_path=criteria_path,
+    )
+
+    if not discovered:
+        console.print("No discovery candidates matched the requested filters.", style="yellow")
+        return
+
+    table = Table(title="Discovered Source Candidates")
+    table.add_column("Fit")
+    table.add_column("Healthy")
+    table.add_column("Source")
+    table.add_column("Type")
+    table.add_column("Endpoint")
+    table.add_column("Notes")
+
+    for item in discovered:
+        healthy_label = "-"
+        if item.validation is not None:
+            healthy_label = "yes" if item.validation.healthy else "no"
+        table.add_row(
+            str(item.fit_score),
+            healthy_label,
+            item.source.name,
+            item.source.type.value,
+            item.source.url,
+            "; ".join(item.fit_reasons[:2]) if item.fit_reasons else item.source.notes,
+        )
+
+    console.print(table)
+
+    if output:
+        output_path = Path(output)
+        if not output_path.is_absolute():
+            output_path = Path(config.root_dir) / output_path
+        written_path = write_discovered_sources(output_path, discovered, enable=enable)
+        console.print(f"Discovery YAML written: {written_path}")
+
+    if append:
+        append_result = append_discovered_sources(config.sources_path, discovered, enable=enable)
+        console.print(
+            (
+                f"Appended discovered sources to config: {append_result['added']} added,"
+                f" {append_result['skipped']} skipped, total={append_result['total']}"
+            ),
+            style="green",
+        )
 
 
 @app.command("import")

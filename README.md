@@ -88,6 +88,9 @@ python -m job_scanner scan --profile deep
 python -m job_scanner scan --profile quick
 python -m job_scanner sources validate --profile deep
 python -m job_scanner sources validate --profile deep --strict --min-healthy 15
+python -m job_scanner sources discover --limit 60 --validate --only-healthy
+python -m job_scanner sources discover --append --enable --limit 20
+python -m job_scanner sources discover --type generic_json --type rss --limit 20
 python -m job_scanner import --file ./exports/linkedin_jobs.csv --format csv
 python -m job_scanner report
 python -m job_scanner list --top 25
@@ -101,6 +104,9 @@ Or via installed script:
 job-scanner scan --profile deep
 job-scanner sources validate
 job-scanner sources validate --strict --min-healthy 15
+job-scanner sources discover --limit 60 --validate --only-healthy
+job-scanner sources discover --append --enable --limit 20
+job-scanner sources discover --type generic_json --type rss --limit 20
 job-scanner import --file ./exports/jobs.json --format json
 job-scanner report
 job-scanner list --top 25
@@ -147,6 +153,23 @@ If a source returns 404 in scan output:
 1. Set `enabled: false` for that source immediately.
 2. Add a verified `api_url` if available.
 3. Re-run `python -m job_scanner scan`.
+
+## Source discovery at scale
+
+Use discovery to avoid hand-curating every company:
+
+1. `python -m job_scanner sources discover --limit 80 --validate --only-healthy`
+   - For multi-company board feeds only: `python -m job_scanner sources discover --type generic_json --type rss --limit 20`
+2. Review ranked recommendations (fit score + endpoint health).
+3. Append top candidates to `config/sources.yaml`:
+   - `python -m job_scanner sources discover --append --enable --limit 25 --validate --only-healthy`
+4. Re-run strict validation before deep scans.
+
+Discovery scoring uses:
+
+- `config/search_profile.yaml` role and location preferences.
+- Optional markdown criteria file (defaults to `ai-job-scan.md`) for extra keyword signals.
+- A built-in catalog that includes ATS feeds and multi-company structured feeds (JSON/RSS).
 
 ## Weekly automation (local)
 
