@@ -89,6 +89,8 @@ class ScoringRules(BaseModel):
     infra_analytics_boost: int = 10
     senior_title_boost: int = 8
     remote_boost: int = 8
+    positive_dimension_min: int = 70
+    negative_dimension_max: int = 55
 
 
 class IngestionConfig(BaseModel):

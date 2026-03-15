@@ -53,6 +53,8 @@ Score: 6.8/10 (68.0/100)
 - number strong matches: 2
 - most common titles: Principal Infrastructure Analytics Engineer, Staff SRE (Remote), Senior Platform Engineer, Sales Engineer
 - most common companies: ExampleCo, ExampleCloud, ExampleData, ExampleBiz
+- median listed comp (max): $355,000
+- low confidence jobs: 0
 
 ## Trend Notes
 

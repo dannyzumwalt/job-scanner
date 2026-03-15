@@ -26,6 +26,8 @@ def make_job(
     estimated_total_comp_max: int | None = 420000,
     role_family_tags: list[str] | None = None,
     seniority_hints: list[str] | None = None,
+    parse_confidence: float = 1.0,
+    data_quality_flags: list[str] | None = None,
 ) -> NormalizedJob:
     normalized_title = normalize_title(title)
     normalized_location = normalize_location(location)
@@ -73,6 +75,8 @@ def make_job(
         compensation_confidence=0.8,
         role_family_tags=role_family_tags or ["infrastructure", "analytics", "reliability"],
         seniority_hints=seniority_hints or ["principal"],
+        parse_confidence=parse_confidence,
+        data_quality_flags=data_quality_flags or [],
         dedupe_key=dedupe_key,
         job_hash=build_job_hash(payload),
     )

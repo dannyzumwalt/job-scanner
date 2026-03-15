@@ -46,7 +46,11 @@ def _category_buckets(
     return top, potential, rejected
 
 
-def build_market_notes(scored_jobs: list[dict[str, Any]]) -> dict[str, Any]:
+def build_market_notes(
+    scored_jobs: list[dict[str, Any]],
+    *,
+    hard_floor_total_comp: int | None = None,
+) -> dict[str, Any]:
     remote_count = sum(1 for job in scored_jobs if job.get("is_remote"))
     dfw_count = sum(1 for job in scored_jobs if job.get("dfw_match"))
     comp_listed_count = sum(
@@ -67,6 +71,26 @@ def build_market_notes(scored_jobs: list[dict[str, Any]]) -> dict[str, Any]:
     most_common_titles = sorted(title_histogram.items(), key=lambda item: item[1], reverse=True)[:5]
     most_common_companies = sorted(company_histogram.items(), key=lambda item: item[1], reverse=True)[:5]
 
+    comp_max_values = [
+        job["estimated_total_comp_max"]
+        for job in scored_jobs
+        if job.get("estimated_total_comp_max") is not None
+    ]
+    median_listed_comp: int | None = None
+    if comp_max_values:
+        sorted_vals = sorted(comp_max_values)
+        n = len(sorted_vals)
+        median_listed_comp = sorted_vals[n // 2] if n % 2 == 1 else (sorted_vals[n // 2 - 1] + sorted_vals[n // 2]) // 2
+
+    pct_above_floor: float | None = None
+    if hard_floor_total_comp is not None and comp_max_values:
+        above = sum(1 for v in comp_max_values if v >= hard_floor_total_comp)
+        pct_above_floor = round(above / len(comp_max_values) * 100.0, 1)
+
+    low_confidence_count = sum(
+        1 for job in scored_jobs if (job.get("parse_confidence") or 1.0) < 0.75
+    )
+
     return {
         "total_jobs_scanned": len(scored_jobs),
         "with_listed_compensation": comp_listed_count,
@@ -75,6 +99,9 @@ def build_market_notes(scored_jobs: list[dict[str, Any]]) -> dict[str, Any]:
         "strong_matches": strong_matches,
         "most_common_titles": most_common_titles,
         "most_common_companies": most_common_companies,
+        "median_listed_comp": median_listed_comp,
+        "pct_above_floor": pct_above_floor,
+        "low_confidence_count": low_confidence_count,
     }
 
 
@@ -180,6 +207,11 @@ def render_markdown_report(
     lines.append(
         f"- most common companies: {', '.join([company for company, _ in notes['most_common_companies']]) or 'N/A'}"
     )
+    if notes["median_listed_comp"] is not None:
+        lines.append(f"- median listed comp (max): ${notes['median_listed_comp']:,.0f}")
+    if notes["pct_above_floor"] is not None:
+        lines.append(f"- pct above comp floor: {notes['pct_above_floor']}%")
+    lines.append(f"- low confidence jobs: {notes['low_confidence_count']}")
 
     if trend_notes:
         lines.append("")

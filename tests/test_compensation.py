@@ -1,4 +1,5 @@
 from job_scanner.sources.common import parse_comp_and_confidence
+from job_scanner.utils import parse_comp_values_from_text
 
 
 def test_parse_comp_structured_components_high_confidence() -> None:
@@ -42,3 +43,46 @@ def test_parse_comp_missing_marks_quality_flags() -> None:
     assert total_max is None
     assert confidence < 0.4
     assert "comp_missing" in flags
+
+
+def test_single_amount_returns_same_min_and_max() -> None:
+    low, high = parse_comp_values_from_text("Salary: $250,000")
+    assert low == 250_000
+    assert high == 250_000
+
+
+def test_multiple_amounts_no_range_separator_returns_first_two() -> None:
+    low, high = parse_comp_values_from_text("Base $280,000. Target bonus $40,000.")
+    assert low is not None
+    assert high is not None
+    assert low <= high
+
+
+def test_amount_below_min_reasonable_returns_none() -> None:
+    low, high = parse_comp_values_from_text("Hourly rate $100")
+    assert low is None
+    assert high is None
+
+
+def test_amount_above_max_reasonable_returns_none() -> None:
+    low, high = parse_comp_values_from_text("Total value $10,000,000")
+    assert low is None
+    assert high is None
+
+
+def test_dollar_sign_with_no_valid_number_returns_none() -> None:
+    low, high = parse_comp_values_from_text("Competitive $$$")
+    assert low is None
+    assert high is None
+
+
+def test_k_suffix_parsed_correctly() -> None:
+    low, high = parse_comp_values_from_text("$250k - $300k")
+    assert low == 250_000
+    assert high == 300_000
+
+
+def test_inverted_range_returns_lower_higher() -> None:
+    low, high = parse_comp_values_from_text("$350,000 - $280,000")
+    assert low == 280_000
+    assert high == 350_000

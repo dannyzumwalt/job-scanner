@@ -528,11 +528,17 @@ def generate_report_for_latest_scan(app_config: AppConfig) -> dict[str, Any]:
         storage.close()
 
 
-def list_top_jobs(app_config: AppConfig, *, top_n: int = 25) -> list[dict[str, Any]]:
+def list_top_jobs(
+    app_config: AppConfig,
+    *,
+    top_n: int = 25,
+    min_score: float | None = None,
+    category: str | None = None,
+) -> list[dict[str, Any]]:
     storage = Storage(app_config.db_path)
     storage.init_db()
     try:
-        return storage.list_top_jobs(limit=top_n)
+        return storage.list_top_jobs(limit=top_n, min_score=min_score, category=category)
     finally:
         storage.close()
 

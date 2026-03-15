@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import logging
+
 from ..http_client import HttpFetcher
+
+logger = logging.getLogger(__name__)
 from ..models import NormalizedJob, RawJob, SourceConfig
 from ..utils import extract_by_path, value_as_text
 from .common import build_normalized_job
@@ -87,7 +91,8 @@ def fetch_and_normalize(source: SourceConfig, fetcher: HttpFetcher) -> tuple[lis
         )
         try:
             normalized_jobs.append(parse_generic_json_job(source, item))
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to parse item %s from source %s: %s", source_job_id, source.name, exc)
             continue
 
     return raw_jobs, normalized_jobs

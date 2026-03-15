@@ -228,11 +228,19 @@ class Storage:
         now = datetime.now(UTC).isoformat()
         stored: list[StoredJob] = []
 
+        if not jobs:
+            return stored
+
+        dedupe_keys = [job.dedupe_key for job in jobs]
+        placeholders = ",".join(["?"] * len(dedupe_keys))
+        existing_rows = self.conn.execute(
+            f"SELECT id, dedupe_key FROM normalized_jobs WHERE dedupe_key IN ({placeholders})",
+            dedupe_keys,
+        ).fetchall()
+        existing_map = {row["dedupe_key"]: int(row["id"]) for row in existing_rows}
+
         for job in jobs:
-            existing = self.conn.execute(
-                "SELECT id FROM normalized_jobs WHERE dedupe_key = ?",
-                (job.dedupe_key,),
-            ).fetchone()
+            existing_id = existing_map.get(job.dedupe_key)
 
             common_payload = (
                 job.source_name,
@@ -272,7 +280,7 @@ class Storage:
                 job.parse_confidence,
             )
 
-            if existing:
+            if existing_id is not None:
                 self.conn.execute(
                     """
                     UPDATE normalized_jobs
@@ -318,7 +326,7 @@ class Storage:
                     """,
                     (*common_payload, now, 1, scan_id, job.dedupe_key),
                 )
-                stored.append(StoredJob(job_id=int(existing["id"]), normalized=job, is_new=False))
+                stored.append(StoredJob(job_id=existing_id, normalized=job, is_new=False))
             else:
                 self.conn.execute(
                     """
@@ -573,11 +581,22 @@ class Storage:
 
         return result
 
-    def list_top_jobs(self, limit: int = 25, scan_id: int | None = None) -> list[dict[str, Any]]:
+    def list_top_jobs(
+        self,
+        limit: int = 25,
+        scan_id: int | None = None,
+        min_score: float | None = None,
+        category: str | None = None,
+    ) -> list[dict[str, Any]]:
         selected_scan_id = scan_id or self.get_latest_scan_id()
         if selected_scan_id is None:
             return []
-        return self.get_scored_jobs_for_scan(selected_scan_id)[:limit]
+        jobs = self.get_scored_jobs_for_scan(selected_scan_id)
+        if min_score is not None:
+            jobs = [j for j in jobs if j["display_score"] >= min_score]
+        if category is not None:
+            jobs = [j for j in jobs if j["category"].value == category]
+        return jobs[:limit]
 
     def get_scan_diff(self, current_scan_id: int, baseline_scan_id: int) -> ScanDiff:
         current_rows = self.conn.execute(

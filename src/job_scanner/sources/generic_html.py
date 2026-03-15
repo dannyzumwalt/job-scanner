@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import logging
 from urllib.parse import urljoin
+
+logger = logging.getLogger(__name__)
 
 from bs4 import BeautifulSoup, Tag
 
@@ -106,7 +109,8 @@ def parse_html_text(source: SourceConfig, html_text: str) -> tuple[list[RawJob],
                     raw_payload=payload,
                 )
             )
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to normalize item %d from source %s: %s", index, source.name, exc)
             continue
 
     return raw_jobs, normalized_jobs

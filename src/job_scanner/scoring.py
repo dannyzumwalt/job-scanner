@@ -105,12 +105,12 @@ class JobScorer:
 
         top_dimensions = sorted(dimensions.items(), key=lambda item: item[1], reverse=True)[:3]
         for name, value in top_dimensions:
-            if value >= 70:
+            if value >= rules.positive_dimension_min:
                 reasons.append(POSITIVE_TEMPLATES.get(name, f"{name} is strong"))
 
         low_dimensions = sorted(dimensions.items(), key=lambda item: item[1])[:3]
         for name, value in low_dimensions:
-            if value <= 55:
+            if value <= rules.negative_dimension_max:
                 concerns.append(NEGATIVE_TEMPLATES.get(name, f"{name} is weak"))
 
         reasons = self._dedupe_messages(reasons)
@@ -155,6 +155,10 @@ class JobScorer:
             return 78.0
         if any(token in title for token in ("junior", "entry", "intern")):
             return 15.0
+        if any(h in ("distinguished", "principal", "staff", "architect") for h in job.seniority_hints):
+            return 95.0
+        if any(h in ("senior", "lead") for h in job.seniority_hints):
+            return 78.0
         return 55.0
 
     def _score_technical_domain(self, job: NormalizedJob) -> float:
