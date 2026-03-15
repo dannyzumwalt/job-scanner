@@ -293,10 +293,12 @@ def report(root: str | None = typer.Option(None, help="Project root path")) -> N
 def list_command(
     top: int = typer.Option(25, "--top", help="Number of top-ranked jobs to display"),
     root: str | None = typer.Option(None, help="Project root path"),
+    min_score: float | None = typer.Option(None, "--min-score", help="Only show jobs with display_score >= min_score"),
+    category: str | None = typer.Option(None, "--category", help="Filter by category: strong|good|possible|reject"),
 ) -> None:
     """Show top current listings in terminal."""
     config = _load_config(root)
-    jobs = list_top_jobs(config, top_n=top)
+    jobs = list_top_jobs(config, top_n=top, min_score=min_score, category=category)
 
     if not jobs:
         console.print("No scored jobs available. Run `scan` first.", style="yellow")
@@ -330,6 +332,7 @@ def list_command(
 def diff(
     since: str = typer.Option("last", "--since", help="Baseline: 'last' or ISO timestamp"),
     root: str | None = typer.Option(None, help="Project root path"),
+    format: str = typer.Option("table", "--format", help="Output format: table|json"),
 ) -> None:
     """Show new, removed, and changed listings vs a prior scan."""
     config = _load_config(root)
@@ -338,10 +341,39 @@ def diff(
     console.print(
         f"Comparing scan {result['current_scan_id']} against baseline {result['baseline_scan_id']}"
     )
-    console.print(f"New jobs: {len(result['new_jobs'])}")
-    console.print(f"Removed jobs: {len(result['removed_jobs'])}")
-    console.print(f"Changed jobs: {len(result['changed_jobs'])}")
-    console.print(json.dumps(result, indent=2))
+    console.print(
+        f"New: {len(result['new_jobs'])} | Removed: {len(result['removed_jobs'])} | Changed: {len(result['changed_jobs'])}"
+    )
+
+    if format == "json":
+        console.print(json.dumps(result, indent=2))
+        return
+
+    new_table = Table(title=f"New Jobs ({len(result['new_jobs'])})")
+    new_table.add_column("Title")
+    new_table.add_column("Company")
+    new_table.add_column("Apply URL")
+    for job in result["new_jobs"]:
+        new_table.add_row(job["title"], job["company"], job.get("apply_url") or "N/A")
+    console.print(new_table)
+
+    removed_table = Table(title=f"Removed Jobs ({len(result['removed_jobs'])})")
+    removed_table.add_column("Title")
+    removed_table.add_column("Company")
+    removed_table.add_column("Apply URL")
+    for job in result["removed_jobs"]:
+        removed_table.add_row(job["title"], job["company"], job.get("apply_url") or "N/A")
+    console.print(removed_table)
+
+    changed_table = Table(title=f"Changed Jobs ({len(result['changed_jobs'])})")
+    changed_table.add_column("Title")
+    changed_table.add_column("Company")
+    changed_table.add_column("Score Delta")
+    for job in result["changed_jobs"]:
+        delta = job.get("score_delta", 0)
+        delta_str = f"+{delta}" if delta > 0 else str(delta)
+        changed_table.add_row(job["title"], job["company"], delta_str)
+    console.print(changed_table)
 
 
 @app.command()

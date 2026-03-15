@@ -132,7 +132,10 @@
         "ExampleBiz",
         1
       ]
-    ]
+    ],
+    "median_listed_comp": 355000,
+    "pct_above_floor": null,
+    "low_confidence_count": 0
   },
   "trend_notes": [
     "Remote share: 75.0% (+5.0 pts vs prior scan)"

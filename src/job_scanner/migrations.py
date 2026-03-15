@@ -4,7 +4,7 @@ import json
 import sqlite3
 from datetime import UTC, datetime
 
-CURRENT_SCHEMA_VERSION = 5
+CURRENT_SCHEMA_VERSION = 6
 
 
 def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
@@ -227,12 +227,19 @@ def _migration_v5(conn: sqlite3.Connection) -> None:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_normalized_active ON normalized_jobs(is_active)")
 
 
+def _migration_v6(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_score_results_scan_id ON score_results(scan_id)"
+    )
+
+
 MIGRATIONS = {
     1: _migration_v1,
     2: _migration_v2,
     3: _migration_v3,
     4: _migration_v4,
     5: _migration_v5,
+    6: _migration_v6,
 }
 
 
