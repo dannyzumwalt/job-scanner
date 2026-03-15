@@ -101,6 +101,7 @@ class SourceConfig(BaseModel):
     type: SourceType
     enabled: bool = True
     url: str
+    api_url: str | None = None
     notes: str = ""
     headers: dict[str, str] = Field(default_factory=dict)
 

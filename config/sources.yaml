@@ -13,27 +13,51 @@ sources:
 
   - name: "Snowflake"
     type: "greenhouse"
-    enabled: true
+    enabled: false
     url: "https://boards.greenhouse.io/snowflake"
-    notes: "Data platform roles"
+    notes: "Currently returns 404 via Greenhouse API; enable only after endpoint verification"
 
-  - name: "Stripe"
+  - name: "Pinterest"
+    type: "greenhouse"
+    enabled: true
+    url: "https://boards.greenhouse.io/pinterest"
+    notes: "Platform and infrastructure roles"
+
+  - name: "Airbnb"
+    type: "greenhouse"
+    enabled: true
+    url: "https://boards.greenhouse.io/airbnb"
+    notes: "Distributed systems and platform engineering roles"
+
+  - name: "Figma"
+    type: "greenhouse"
+    enabled: true
+    url: "https://boards.greenhouse.io/figma"
+    notes: "High-end systems and data roles"
+
+  - name: "Palantir"
     type: "lever"
     enabled: true
-    url: "https://jobs.lever.co/stripe"
-    notes: "High-end engineering roles"
+    url: "https://jobs.lever.co/palantir"
+    notes: "Infrastructure and distributed systems opportunities"
+
+  - name: "Spotify"
+    type: "lever"
+    enabled: true
+    url: "https://jobs.lever.co/spotify"
+    notes: "Platform and backend IC opportunities"
 
   - name: "NVIDIA"
     type: "greenhouse"
-    enabled: true
+    enabled: false
     url: "https://boards.greenhouse.io/nvidia"
-    notes: "Systems and infrastructure opportunities"
+    notes: "Currently returns 404 via Greenhouse API; enable only after endpoint verification"
 
-  - name: "Palo Alto Networks"
+  - name: "Stripe"
     type: "lever"
     enabled: false
-    url: "https://jobs.lever.co/paloaltonetworks"
-    notes: "Enable if API endpoint is healthy"
+    url: "https://jobs.lever.co/stripe"
+    notes: "Currently returns 404 via Lever API; enable only if endpoint changes"
 
   - name: "Example Ashby Company"
     type: "ashby"

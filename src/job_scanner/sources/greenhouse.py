@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from ..http_client import HttpFetcher
 from ..models import NormalizedJob, RawJob, SourceConfig
@@ -32,6 +32,20 @@ def _extract_slug(board_url: str) -> str:
 def greenhouse_api_url(board_url: str) -> str:
     slug = _extract_slug(board_url)
     return f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs?content=true"
+
+
+def resolve_greenhouse_endpoint(source: SourceConfig) -> str:
+    if source.api_url:
+        return source.api_url
+
+    parsed = urlparse(source.url)
+    if "boards-api.greenhouse.io" in parsed.netloc:
+        query = parse_qs(parsed.query)
+        query["content"] = ["true"]
+        normalized_query = urlencode(query, doseq=True)
+        return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, normalized_query, parsed.fragment))
+
+    return greenhouse_api_url(source.url)
 
 
 def parse_greenhouse_job(source: SourceConfig, posting: dict) -> NormalizedJob:
@@ -105,7 +119,7 @@ def parse_greenhouse_job(source: SourceConfig, posting: dict) -> NormalizedJob:
 
 
 def fetch_and_normalize(source: SourceConfig, fetcher: HttpFetcher) -> tuple[list[RawJob], list[NormalizedJob]]:
-    endpoint = greenhouse_api_url(source.url)
+    endpoint = resolve_greenhouse_endpoint(source)
     data = fetcher.get_json(endpoint, headers=source.headers or None)
     postings = data.get("jobs") or []
 

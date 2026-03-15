@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from ..http_client import HttpFetcher
 from ..models import NormalizedJob, RawJob, SourceConfig
@@ -32,6 +32,20 @@ def _extract_site_slug(source_url: str) -> str:
 def lever_api_url(source_url: str) -> str:
     slug = _extract_site_slug(source_url)
     return f"https://api.lever.co/v0/postings/{slug}?mode=json"
+
+
+def resolve_lever_endpoint(source: SourceConfig) -> str:
+    if source.api_url:
+        return source.api_url
+
+    parsed = urlparse(source.url)
+    if "api.lever.co" in parsed.netloc:
+        query = parse_qs(parsed.query)
+        query["mode"] = ["json"]
+        normalized_query = urlencode(query, doseq=True)
+        return urlunparse((parsed.scheme, parsed.netloc, parsed.path, parsed.params, normalized_query, parsed.fragment))
+
+    return lever_api_url(source.url)
 
 
 def parse_lever_job(source: SourceConfig, posting: dict) -> NormalizedJob:
@@ -106,7 +120,7 @@ def parse_lever_job(source: SourceConfig, posting: dict) -> NormalizedJob:
 
 
 def fetch_and_normalize(source: SourceConfig, fetcher: HttpFetcher) -> tuple[list[RawJob], list[NormalizedJob]]:
-    endpoint = lever_api_url(source.url)
+    endpoint = resolve_lever_endpoint(source)
     postings = fetcher.get_json(endpoint, headers=source.headers or None) or []
 
     raw_jobs: list[RawJob] = []

@@ -8,6 +8,8 @@ from typing import Any
 MONEY_TOKEN_RE = re.compile(r"\$?\s*(\d{2,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*([kKmM])?")
 RANGE_SEP_RE = re.compile(r"\s*(?:-|to|–|—)\s*", re.IGNORECASE)
 TRAVEL_RE = re.compile(r"(\d{1,2})\s*%\s*(?:travel|of travel)", re.IGNORECASE)
+MIN_REASONABLE_COMP = 30_000
+MAX_REASONABLE_COMP = 5_000_000
 
 
 def compact_whitespace(text: str | None) -> str:
@@ -87,7 +89,9 @@ def parse_comp_values_from_text(text: str | None) -> tuple[int | None, int | Non
     stripped = compact_whitespace(text)
     candidates = []
     for match in MONEY_TOKEN_RE.finditer(stripped):
-        candidates.append(_money_to_int(match.group(1), match.group(2)))
+        value = _money_to_int(match.group(1), match.group(2))
+        if MIN_REASONABLE_COMP <= value <= MAX_REASONABLE_COMP:
+            candidates.append(value)
 
     if not candidates:
         return None, None

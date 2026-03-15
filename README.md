@@ -57,6 +57,11 @@ Important knobs:
 - scoring weights and penalties/boosts
 - source enablement and URLs
 
+Source config supports both:
+
+- `url`: board URL (for slug-based API derivation)
+- `api_url` (optional): explicit API endpoint override when board URL does not map cleanly
+
 ## CLI usage
 
 Run via module:
@@ -96,12 +101,19 @@ Each scan writes:
 3. Register the source type in `src/job_scanner/sources/__init__.py`.
 4. Add parser tests and fixtures in `tests/`.
 
+If a source returns 404 in scan output:
+
+1. Set `enabled: false` for that source immediately.
+2. Add a verified `api_url` if available.
+3. Re-run `python -m job_scanner scan`.
+
 ## Known limitations (MVP)
 
 - Ashby connector is best-effort and may need per-company adjustments.
 - Generic HTML/RSS connector is intentionally deferred.
 - Compensation parsing is conservative and estimate confidence can be low when ranges are absent.
 - Material change detection uses content hash and score delta threshold.
+- Some company job board URLs do not expose stable public APIs; these sources may require explicit `api_url` or disabling.
 
 ## Future enhancements
 
