@@ -5,6 +5,12 @@ __pycache__/
 
 .venv/
 
+.env
+.env.*
+!.env.example
+
+*.egg-info/
+
 config/sources.yaml
 
 data/raw/*.jsonl
@@ -14,3 +20,4 @@ data/reports/latest_report.*
 data/reports/report_*.md
 data/reports/report_*.csv
 data/reports/report_*.json
+data/reports/sample_report.md
