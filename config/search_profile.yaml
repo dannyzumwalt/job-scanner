@@ -89,3 +89,21 @@ ingestion:
   retry_backoff_seconds: 0.5
   min_request_interval_seconds: 0.25
   max_workers: 4
+scan_profiles:
+  quick:
+    max_sources: 8
+    validate_sources: true
+    resume_enabled: false
+    include_source_types: []
+    request_timeout_seconds_override: 15
+  deep:
+    max_sources: 30
+    validate_sources: true
+    resume_enabled: true
+    include_source_types: []
+    request_timeout_seconds_override: null
+reporting:
+  top_matches_target: 10
+  potential_matches_target: 10
+  reject_list_max: 30
+  trend_lookback_scans: 4

@@ -4,6 +4,33 @@ from .models import MatchCategory, NormalizedJob, ScoreResult, SearchProfile
 from .utils import clamp_score
 
 
+POSITIVE_TEMPLATES = {
+    "compensation_fit": "Compensation potential aligns with target band",
+    "role_seniority_fit": "Role seniority matches target IC level",
+    "technical_domain_fit": "Technical domain aligns with preferred role families",
+    "analytics_data_fit": "Role includes meaningful analytics/data responsibilities",
+    "infrastructure_reliability_fit": "Infrastructure/reliability signal is strong",
+    "remote_fit": "Work arrangement matches remote preference",
+    "location_fit": "Location fit is aligned with DFW/US constraints",
+    "travel_fit": "Travel requirement is compatible with preference",
+    "leadership_autonomy_fit": "Role indicates strong ownership/autonomy",
+    "title_relevance": "Title relevance is high for target trajectory",
+}
+
+NEGATIVE_TEMPLATES = {
+    "compensation_fit": "Compensation signal is weak or below target",
+    "role_seniority_fit": "Role level appears below target seniority",
+    "technical_domain_fit": "Technical domain overlap is limited",
+    "analytics_data_fit": "Limited analytics/data signal detected",
+    "infrastructure_reliability_fit": "Limited infrastructure/reliability signal detected",
+    "remote_fit": "Work arrangement appears less remote-friendly",
+    "location_fit": "Location may not match primary preferences",
+    "travel_fit": "Travel expectations may be too high",
+    "leadership_autonomy_fit": "Ownership/autonomy signal appears limited",
+    "title_relevance": "Title may be less aligned with target roles",
+}
+
+
 class JobScorer:
     def __init__(self, profile: SearchProfile) -> None:
         self.profile = profile
@@ -57,28 +84,34 @@ class JobScorer:
         has_analytics = "analytics" in job.role_family_tags
         if has_infra and has_analytics:
             adjustment += rules.infra_analytics_boost
-            reasons.append("Strong infrastructure plus analytics signal")
 
         if self._contains_any(job.title.lower(), ["staff", "principal", "distinguished", "architect"]):
             adjustment += rules.senior_title_boost
-            reasons.append("Title suggests senior technical IC level")
 
         if job.is_remote:
             adjustment += rules.remote_boost
-            reasons.append("Remote-compatible role")
+
+        # Data quality confidence penalty.
+        parse_conf_penalty = 0.0
+        if job.parse_confidence < 0.75:
+            parse_conf_penalty += (0.75 - job.parse_confidence) * 20.0
+        parse_conf_penalty += min(len(job.data_quality_flags) * 2.0, 12.0)
+        if parse_conf_penalty > 0:
+            adjustment -= parse_conf_penalty
+            concerns.append("Low extraction confidence reduced score")
 
         total_score = clamp_score(weighted_score + adjustment)
         display_score = round(total_score / 10.0, 1)
 
         top_dimensions = sorted(dimensions.items(), key=lambda item: item[1], reverse=True)[:3]
         for name, value in top_dimensions:
-            if value >= 75:
-                reasons.append(f"{name.replace('_', ' ').title()} is strong")
+            if value >= 70:
+                reasons.append(POSITIVE_TEMPLATES.get(name, f"{name} is strong"))
 
-        low_dimensions = sorted(dimensions.items(), key=lambda item: item[1])[:2]
+        low_dimensions = sorted(dimensions.items(), key=lambda item: item[1])[:3]
         for name, value in low_dimensions:
-            if value <= 45:
-                concerns.append(f"{name.replace('_', ' ').title()} is weak")
+            if value <= 55:
+                concerns.append(NEGATIVE_TEMPLATES.get(name, f"{name} is weak"))
 
         reasons = self._dedupe_messages(reasons)
         concerns = self._dedupe_messages(concerns)

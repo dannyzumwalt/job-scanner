@@ -29,7 +29,9 @@ def _work_mode_text(job: dict[str, Any]) -> str:
     return "Onsite"
 
 
-def _category_buckets(scored_jobs: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+def _category_buckets(
+    scored_jobs: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     top = []
     potential = []
     rejected = []
@@ -52,7 +54,9 @@ def build_market_notes(scored_jobs: list[dict[str, Any]]) -> dict[str, Any]:
         for job in scored_jobs
         if job.get("estimated_total_comp_min") is not None or job.get("estimated_total_comp_max") is not None
     )
-    strong_matches = sum(1 for job in scored_jobs if job.get("category") in (MatchCategory.STRONG, MatchCategory.GOOD))
+    strong_matches = sum(
+        1 for job in scored_jobs if job.get("category") in (MatchCategory.STRONG, MatchCategory.GOOD)
+    )
 
     title_histogram: dict[str, int] = {}
     company_histogram: dict[str, int] = {}
@@ -74,15 +78,39 @@ def build_market_notes(scored_jobs: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _source_health_summary(source_health: list[dict[str, Any]]) -> dict[str, Any]:
+    total = len(source_health)
+    success = sum(1 for item in source_health if item.get("status") == "success")
+    failed = sum(1 for item in source_health if item.get("status") != "success")
+    success_rate = 0.0 if total == 0 else round((success / total) * 100.0, 1)
+    return {
+        "total": total,
+        "success": success,
+        "failed": failed,
+        "success_rate": success_rate,
+    }
+
+
 def render_markdown_report(
     scored_jobs: list[dict[str, Any]],
     *,
     scan_id: int,
+    source_health: list[dict[str, Any]] | None = None,
+    trend_notes: list[str] | None = None,
+    top_matches_target: int = 10,
+    potential_matches_target: int = 10,
+    reject_list_max: int = 30,
     generated_at: datetime | None = None,
 ) -> str:
     generated = generated_at or datetime.now(UTC)
     top, potential, rejected = _category_buckets(scored_jobs)
+
+    top = top[: max(1, top_matches_target)]
+    potential = potential[: max(1, potential_matches_target)]
+    rejected = rejected[: max(1, reject_list_max)]
+
     notes = build_market_notes(scored_jobs)
+    health = _source_health_summary(source_health or [])
 
     lines: list[str] = []
     lines.append("# Job Scan Report")
@@ -105,11 +133,11 @@ def render_markdown_report(
         lines.append(f"Apply URL: {job.get('apply_url') or 'N/A'}")
         if job.get("reasons"):
             lines.append("Why this role fits:")
-            for reason in job["reasons"][:4]:
+            for reason in job["reasons"][:3]:
                 lines.append(f"- {reason}")
         if job.get("concerns"):
             lines.append("Potential concerns:")
-            for concern in job["concerns"][:3]:
+            for concern in job["concerns"][:2]:
                 lines.append(f"- {concern}")
         lines.append("")
 
@@ -123,7 +151,9 @@ def render_markdown_report(
         lines.append(f"Location: {job.get('location') or 'Not listed'}")
         lines.append(f"Estimated total compensation: {_comp_range_text(job)}")
         lines.append(f"Reason it might fit: {', '.join(job.get('reasons', [])[:2]) or 'Partial fit on role criteria'}")
-        lines.append(f"Potential concerns: {', '.join(job.get('concerns', [])[:2]) or 'Needs deeper manual review'}")
+        lines.append(
+            f"Potential concerns: {', '.join(job.get('concerns', [])[:2]) or 'Needs deeper manual review'}"
+        )
         lines.append(f"Score: {job['display_score']}/10 ({job['total_score']:.1f}/100)")
         lines.append("")
 
@@ -131,7 +161,7 @@ def render_markdown_report(
     lines.append("")
     if not rejected:
         lines.append("No rejected roles in this scan.")
-    for job in rejected[:50]:
+    for job in rejected:
         reason = ", ".join(job.get("concerns", [])[:1]) or "Low composite score"
         lines.append(f"- {job['title']} @ {job['company']}: {reason}")
 
@@ -148,6 +178,31 @@ def render_markdown_report(
         f"- most common companies: {', '.join([company for company, _ in notes['most_common_companies']]) or 'N/A'}"
     )
 
+    if trend_notes:
+        lines.append("")
+        lines.append("## Trend Notes")
+        lines.append("")
+        for note in trend_notes:
+            lines.append(f"- {note}")
+
+    lines.append("")
+    lines.append("## Source Health")
+    lines.append("")
+    lines.append(
+        f"- sources checked: {health['total']} | success: {health['success']} | failed: {health['failed']} | success rate: {health['success_rate']}%"
+    )
+    for item in (source_health or []):
+        status = item.get("status", "unknown")
+        http_status = item.get("http_status")
+        latency = item.get("latency_ms", 0)
+        parsed = item.get("parse_count", 0)
+        suffix = ""
+        if item.get("error_message"):
+            suffix = f" | error: {item['error_message']}"
+        lines.append(
+            f"- {item.get('source_name', 'unknown')}: {status} | http={http_status} | parsed={parsed} | latency_ms={latency}{suffix}"
+        )
+
     return "\n".join(lines).strip() + "\n"
 
 
@@ -155,6 +210,12 @@ def write_reports(
     report_dir: str,
     scan_id: int,
     scored_jobs: list[dict[str, Any]],
+    *,
+    source_health: list[dict[str, Any]] | None = None,
+    trend_notes: list[str] | None = None,
+    top_matches_target: int = 10,
+    potential_matches_target: int = 10,
+    reject_list_max: int = 30,
 ) -> dict[str, str]:
     out_dir = Path(report_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -162,7 +223,16 @@ def write_reports(
     now = datetime.now(UTC)
     timestamp = now.strftime("%Y%m%dT%H%M%SZ")
 
-    markdown = render_markdown_report(scored_jobs, scan_id=scan_id, generated_at=now)
+    markdown = render_markdown_report(
+        scored_jobs,
+        scan_id=scan_id,
+        source_health=source_health,
+        trend_notes=trend_notes,
+        top_matches_target=top_matches_target,
+        potential_matches_target=potential_matches_target,
+        reject_list_max=reject_list_max,
+        generated_at=now,
+    )
 
     latest_md = out_dir / "latest_report.md"
     ts_md = out_dir / f"report_{timestamp}.md"
@@ -186,6 +256,8 @@ def write_reports(
                 "is_remote": job.get("is_remote"),
                 "is_hybrid": job.get("is_hybrid"),
                 "is_onsite": job.get("is_onsite"),
+                "ingest_mode": job.get("ingest_mode"),
+                "parse_confidence": job.get("parse_confidence"),
                 "estimated_total_comp_min": job.get("estimated_total_comp_min"),
                 "estimated_total_comp_max": job.get("estimated_total_comp_max"),
                 "total_score": job["total_score"],
@@ -199,29 +271,7 @@ def write_reports(
             }
         )
 
-    if export_rows:
-        fieldnames = list(export_rows[0].keys())
-    else:
-        fieldnames = [
-            "scan_id",
-            "normalized_job_id",
-            "title",
-            "company",
-            "location",
-            "is_remote",
-            "is_hybrid",
-            "is_onsite",
-            "estimated_total_comp_min",
-            "estimated_total_comp_max",
-            "total_score",
-            "display_score",
-            "category",
-            "recommended_action",
-            "apply_url",
-            "is_new",
-            "reasons",
-            "concerns",
-        ]
+    fieldnames = list(export_rows[0].keys()) if export_rows else []
 
     for csv_path in (latest_csv, ts_csv):
         with csv_path.open("w", newline="", encoding="utf-8") as fh:
@@ -234,6 +284,8 @@ def write_reports(
         "generated_at": now.isoformat(),
         "jobs": export_rows,
         "market_notes": build_market_notes(scored_jobs),
+        "trend_notes": trend_notes or [],
+        "source_health": source_health or [],
     }
 
     latest_json.write_text(json.dumps(json_payload, indent=2), encoding="utf-8")
