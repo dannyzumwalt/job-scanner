@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from ..http_client import HttpFetcher
 from ..models import NormalizedJob, RawJob, SourceConfig
-from . import generic_json
 
 
 def fetch_and_normalize(source: SourceConfig, fetcher: HttpFetcher) -> tuple[list[RawJob], list[NormalizedJob]]:
-    # Backward-compatible alias. Legacy `generic` sources are treated as generic JSON feeds.
-    return generic_json.fetch_and_normalize(source, fetcher)
+    _ = source
+    _ = fetcher
+    # Intentionally minimal for scale-up phase: generic HTML scraping remains opt-in and disabled by default.
+    return [], []

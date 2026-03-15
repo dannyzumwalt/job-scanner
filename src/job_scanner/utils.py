@@ -25,6 +25,54 @@ def strip_html_tags(value: str | None) -> str:
     return compact_whitespace(text)
 
 
+def extract_by_path(payload: Any, path: str | None, default: Any = None) -> Any:
+    if path is None or path == "":
+        return default
+    current = payload
+    for token in path.split("."):
+        token = token.strip()
+        if token == "":
+            continue
+        if isinstance(current, dict):
+            current = current.get(token)
+        elif isinstance(current, list):
+            try:
+                index = int(token)
+            except ValueError:
+                return default
+            if index < 0 or index >= len(current):
+                return default
+            current = current[index]
+        else:
+            return default
+        if current is None:
+            return default
+    return current
+
+
+def value_as_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return compact_whitespace(value)
+    if isinstance(value, (int, float)):
+        return str(value)
+    return compact_whitespace(str(value))
+
+
+def coerce_bool(value: Any, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    text = value_as_text(value).lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
 def normalize_title(title: str) -> str:
     clean = compact_whitespace(title).lower()
     clean = re.sub(r"[^a-z0-9\s/+&-]", "", clean)
