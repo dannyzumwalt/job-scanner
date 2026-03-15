@@ -1,0 +1,21 @@
+[
+  {
+    "id": "lever-200",
+    "text": "Staff SRE (Remote)",
+    "hostedUrl": "https://jobs.lever.co/example/lever-200",
+    "descriptionPlain": "Operate distributed systems and observability platform. Compensation $320k to $390k total.",
+    "categories": {
+      "location": "Remote, US",
+      "team": "Infrastructure"
+    }
+  },
+  {
+    "id": "lever-201",
+    "text": "Sales Engineer",
+    "hostedUrl": "https://jobs.lever.co/example/lever-201",
+    "descriptionPlain": "Pre-sales role with 40% travel.",
+    "categories": {
+      "location": "United States"
+    }
+  }
+]

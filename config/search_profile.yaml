@@ -1,0 +1,91 @@
+profile_name: "default"
+primary_geography: "United States"
+compensation:
+  target_total_comp_min: 300000
+  target_total_comp_max: 400000
+  hard_floor_total_comp: 250000
+work_preferences:
+  remote_preferred: true
+  remote_first_preferred: true
+  dfw_acceptable: true
+  allowed_locations:
+    - "Dallas"
+    - "Fort Worth"
+    - "DFW"
+    - "Dallas-Fort Worth"
+  max_travel_percent_preferred: 10
+  reject_travel_percent_over: 20
+role_preferences:
+  target_levels:
+    - "senior"
+    - "staff"
+    - "principal"
+    - "distinguished"
+    - "architect"
+  target_role_families:
+    - "infrastructure"
+    - "operations"
+    - "analytics"
+    - "reliability"
+    - "network"
+    - "systems"
+    - "operational intelligence"
+  positive_keywords:
+    - "principal"
+    - "staff"
+    - "distinguished"
+    - "architect"
+    - "infrastructure"
+    - "reliability"
+    - "sre"
+    - "observability"
+    - "operations"
+    - "network"
+    - "data"
+    - "analytics"
+    - "platform"
+    - "distributed systems"
+    - "systems engineering"
+    - "automation"
+  negative_keywords:
+    - "contract"
+    - "temporary"
+    - "internship"
+    - "sales"
+    - "solutions consultant"
+    - "customer success"
+    - "heavy travel"
+    - "entry level"
+    - "junior"
+    - "manager only"
+    - "director of people"
+    - "recruiter"
+scoring_weights:
+  compensation_fit: 0.18
+  role_seniority_fit: 0.14
+  technical_domain_fit: 0.12
+  analytics_data_fit: 0.10
+  infrastructure_reliability_fit: 0.12
+  remote_fit: 0.08
+  location_fit: 0.08
+  travel_fit: 0.08
+  leadership_autonomy_fit: 0.05
+  title_relevance: 0.05
+scoring_rules:
+  strong_match_min: 90
+  good_match_min: 75
+  possible_match_min: 60
+  compensation_absent_penalty: 8
+  low_compensation_penalty: 25
+  heavy_travel_penalty: 25
+  non_dfw_onsite_penalty: 18
+  disallowed_role_penalty: 35
+  infra_analytics_boost: 10
+  senior_title_boost: 8
+  remote_boost: 8
+ingestion:
+  request_timeout_seconds: 25
+  request_retries: 2
+  retry_backoff_seconds: 0.5
+  min_request_interval_seconds: 0.25
+  max_workers: 4

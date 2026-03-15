@@ -1,0 +1,18 @@
+{
+  "jobs": [
+    {
+      "id": 111,
+      "title": "Principal Infrastructure Analytics Engineer",
+      "absolute_url": "https://boards.greenhouse.io/example/jobs/111",
+      "location": {"name": "Remote - United States"},
+      "content": "<p>Lead infrastructure analytics and reliability strategy.</p><p>Compensation: $310,000 - $420,000 total.</p>"
+    },
+    {
+      "id": 112,
+      "title": "Senior Network Reliability Engineer",
+      "absolute_url": "https://boards.greenhouse.io/example/jobs/112",
+      "location": {"name": "Dallas, TX"},
+      "content": "<p>Drive outage analysis and automation.</p><p>Salary $240k-$280k base plus bonus.</p>"
+    }
+  ]
+}

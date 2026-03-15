@@ -1,0 +1,15 @@
+{
+  "data": {
+    "jobsBoard": {
+      "jobs": [
+        {
+          "id": "ashby-301",
+          "title": "Principal Systems Architect",
+          "descriptionHtml": "<p>Technical strategy role for infrastructure automation. Compensation $330k-$450k.</p>",
+          "location": "Remote - United States",
+          "jobUrl": "https://jobs.ashbyhq.com/example/ashby-301"
+        }
+      ]
+    }
+  }
+}

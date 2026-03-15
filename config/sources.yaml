@@ -1,0 +1,42 @@
+sources:
+  - name: "Datadog"
+    type: "greenhouse"
+    enabled: true
+    url: "https://boards.greenhouse.io/datadog"
+    notes: "High-volume infra and reliability roles"
+
+  - name: "Cloudflare"
+    type: "greenhouse"
+    enabled: true
+    url: "https://boards.greenhouse.io/cloudflare"
+    notes: "Strong distributed systems and SRE roles"
+
+  - name: "Snowflake"
+    type: "greenhouse"
+    enabled: true
+    url: "https://boards.greenhouse.io/snowflake"
+    notes: "Data platform roles"
+
+  - name: "Stripe"
+    type: "lever"
+    enabled: true
+    url: "https://jobs.lever.co/stripe"
+    notes: "High-end engineering roles"
+
+  - name: "NVIDIA"
+    type: "greenhouse"
+    enabled: true
+    url: "https://boards.greenhouse.io/nvidia"
+    notes: "Systems and infrastructure opportunities"
+
+  - name: "Palo Alto Networks"
+    type: "lever"
+    enabled: false
+    url: "https://jobs.lever.co/paloaltonetworks"
+    notes: "Enable if API endpoint is healthy"
+
+  - name: "Example Ashby Company"
+    type: "ashby"
+    enabled: false
+    url: "https://jobs.ashbyhq.com/example"
+    notes: "Ashby parser is best-effort; enable per-company"
