@@ -2,9 +2,11 @@
 
 A local-first, CLI-first job listing scanner that ingests jobs from structured sources, normalizes and deduplicates records, scores listings against your preferences, and generates ranked reports.
 
+Version: `1.0.0`
+
 ## What it does
 
-- Pulls job listings from configurable source adapters (Greenhouse, Lever, Ashby, generic JSON, RSS).
+- Pulls job listings from configurable source adapters (Greenhouse, Lever, Ashby, generic JSON, RSS, opt-in generic HTML).
 - Supports manual CSV/JSON import flow for aggregator exports.
 - Stores raw payloads and normalized records in SQLite.
 - Maintains scan history and tracks first-seen/last-seen jobs.
@@ -12,6 +14,7 @@ A local-first, CLI-first job listing scanner that ingests jobs from structured s
 - Exports ranked outputs to Markdown, CSV, and JSON.
 - Supports scan diffs (`new`, `removed`, `changed`) against the previous or timestamp baseline.
 - Tracks per-source run health (status, HTTP code, parse count, latency, error class/message).
+- Enforces profile-driven source health gates (deep profile default: `>=15` healthy live sources).
 
 ## Project layout
 
@@ -58,6 +61,7 @@ Important knobs:
 - include/exclude keywords
 - scoring weights and penalties/boosts
 - scan profiles (`quick` and `deep`)
+- strict validation policy and minimum healthy live source threshold
 - report targets (top matches/potential/reject limits and trend lookback)
 - source enablement and URLs
 
@@ -67,7 +71,13 @@ Source config supports both:
 - `api_url` (optional): explicit API endpoint override when board URL does not map cleanly
 - `format`: `auto|greenhouse|lever|ashby|json|rss|html`
 - `parser_template`: per-source field mapping overrides
+- strict parser-template contracts by source type
 - `priority`, `expected_status`: scheduling and validation controls
+
+`scan_profiles` supports:
+
+- `strict_source_validation` (deep defaults to `true`)
+- `min_healthy_sources` (deep defaults to `15`)
 
 ## CLI usage
 
@@ -77,6 +87,7 @@ Run via module:
 python -m job_scanner scan --profile deep
 python -m job_scanner scan --profile quick
 python -m job_scanner sources validate --profile deep
+python -m job_scanner sources validate --profile deep --strict --min-healthy 15
 python -m job_scanner import --file ./exports/linkedin_jobs.csv --format csv
 python -m job_scanner report
 python -m job_scanner list --top 25
@@ -89,6 +100,7 @@ Or via installed script:
 ```bash
 job-scanner scan --profile deep
 job-scanner sources validate
+job-scanner sources validate --strict --min-healthy 15
 job-scanner import --file ./exports/jobs.json --format json
 job-scanner report
 job-scanner list --top 25
@@ -107,13 +119,28 @@ Each scan writes:
   - `data/reports/latest_report.csv`
   - `data/reports/latest_report.json`
   - timestamped historical versions for each format
+  - report metadata includes source health gate fields: `healthy_sources`, `required_min`, `gate_passed`
 
 ## How to add a source
 
 1. Add a new source entry in `config/sources.yaml`.
-2. If it is a new source type, add a module in `src/job_scanner/sources/` with `fetch_and_normalize()`.
-3. Register the source type in `src/job_scanner/sources/__init__.py`.
-4. Add parser tests and fixtures in `tests/`.
+2. Run `python -m job_scanner sources validate --profile deep --strict`.
+3. Confirm parser-template keys are valid for that source type.
+4. Enable source only after strict validation passes.
+5. Add/update parser tests and fixtures in `tests/` if needed.
+
+Generic HTML template keys (required):
+
+- `items_selector`
+- `title_selector`
+- `apply_url_selector`
+
+Generic HTML template keys (optional):
+
+- `title_attr`, `apply_url_attr`
+- `description_selector`, `location_selector`
+- `requisition_selector`, `compensation_selector`
+- `company_selector`, `source_job_id_selector`, `source_job_id_attr`
 
 If a source returns 404 in scan output:
 
@@ -131,16 +158,35 @@ Example weekly deep scan via cron (Sunday at 07:00 local time):
 
 Recommended weekly sequence:
 
-1. `python -m job_scanner sources validate --profile deep`
+1. `python -m job_scanner sources validate --profile deep --strict`
 2. `python -m job_scanner scan --profile deep`
 3. `python -m job_scanner diff --since last`
 4. `python -m job_scanner cleanup --keep-scans 8 --keep-reports 12`
 
+If the health gate fails (healthy sources below required minimum), review source failures and keep the scan as informational until source health recovers.
+
+## Troubleshooting validation failures
+
+- `404 Not Found`: board slug or endpoint is invalid for that provider; update `api_url` or disable source.
+- `template_validation_error`: parser-template keys are unsupported or missing required keys.
+- `schema_validation_error`: endpoint is reachable but payload shape is not compatible with parser settings.
+- `unexpected_status`: endpoint returned a different HTTP status than `expected_status`.
+
+Use `--strict` validation before enabling new sources in deep profile.
+
+## Sample report fixture
+
+Deterministic sample output for v1 regression checks is stored in:
+
+- `tests/fixtures/sample_report.md`
+- `tests/fixtures/sample_report.json`
+- `tests/fixtures/sample_report.csv`
+
 ## Known limitations
 
 - Ashby boards may require per-company slug verification.
-- Generic HTML scraping remains opt-in and minimal by design.
-- Compensation parsing is conservative and estimate confidence can be low when ranges are absent.
+- Generic HTML parsing is static and selector-driven; dynamic JS-rendered sites are out of scope.
+- Compensation parsing is conservative; unknown bonus/equity values reduce confidence.
 - Material change detection uses content hash and score delta threshold.
 - Some company job board URLs do not expose stable public APIs; these sources may require explicit `api_url` or disabling.
 

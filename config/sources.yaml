@@ -198,6 +198,24 @@ sources:
     url: "https://example.com/jobs.rss"
     notes: "Template for RSS feeds"
 
+  - name: "Example HTML Careers Page"
+    type: "generic_html"
+    format: "html"
+    enabled: false
+    priority: 91
+    expected_status: 200
+    url: "https://example.com/careers"
+    notes: "Opt-in static HTML parser template; keep disabled unless selectors are verified"
+    parser_template:
+      items_selector: ".job-card"
+      title_selector: ".job-title"
+      apply_url_selector: "a.apply-link"
+      apply_url_attr: "href"
+      location_selector: ".job-location"
+      description_selector: ".job-summary"
+      compensation_selector: ".job-compensation"
+      requisition_selector: ".job-id"
+
   - name: "Example Ashby Company"
     type: "ashby"
     format: "ashby"

@@ -93,12 +93,16 @@ scan_profiles:
   quick:
     max_sources: 8
     validate_sources: true
+    strict_source_validation: false
+    min_healthy_sources: 0
     resume_enabled: false
     include_source_types: []
     request_timeout_seconds_override: 15
   deep:
     max_sources: 30
     validate_sources: true
+    strict_source_validation: true
+    min_healthy_sources: 15
     resume_enabled: true
     include_source_types: []
     request_timeout_seconds_override: null
