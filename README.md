@@ -88,8 +88,10 @@ python -m job_scanner scan --profile deep
 python -m job_scanner scan --profile quick
 python -m job_scanner sources validate --profile deep
 python -m job_scanner sources validate --profile deep --strict --min-healthy 15
-python -m job_scanner sources discover --limit 60 --validate --only-healthy
+python -m job_scanner sources discover --limit 60
+python -m job_scanner sources discover --limit 60 --validate --all
 python -m job_scanner sources discover --append --enable --limit 20
+python -m job_scanner sources discover --output config/sources.discovered.yaml --limit 40
 python -m job_scanner sources discover --type generic_json --type rss --limit 20
 python -m job_scanner import --file ./exports/linkedin_jobs.csv --format csv
 python -m job_scanner report
@@ -104,8 +106,10 @@ Or via installed script:
 job-scanner scan --profile deep
 job-scanner sources validate
 job-scanner sources validate --strict --min-healthy 15
-job-scanner sources discover --limit 60 --validate --only-healthy
+job-scanner sources discover --limit 60
+job-scanner sources discover --limit 60 --validate --all
 job-scanner sources discover --append --enable --limit 20
+job-scanner sources discover --output config/sources.discovered.yaml --limit 40
 job-scanner sources discover --type generic_json --type rss --limit 20
 job-scanner import --file ./exports/jobs.json --format json
 job-scanner report
@@ -158,12 +162,37 @@ If a source returns 404 in scan output:
 
 Use discovery to avoid hand-curating every company:
 
-1. `python -m job_scanner sources discover --limit 80 --validate --only-healthy`
+1. Run ranked discovery first (default is `--no-validate`): `python -m job_scanner sources discover --limit 80`
+   - This is the recommended first pass when quickly expanding coverage.
    - For multi-company board feeds only: `python -m job_scanner sources discover --type generic_json --type rss --limit 20`
-2. Review ranked recommendations (fit score + endpoint health).
-3. Append top candidates to `config/sources.yaml`:
-   - `python -m job_scanner sources discover --append --enable --limit 25 --validate --only-healthy`
-4. Re-run strict validation before deep scans.
+2. Optionally run endpoint checks on discovered candidates:
+   - `python -m job_scanner sources discover --limit 80 --validate --all`
+   - `python -m job_scanner sources discover --limit 80 --validate --only-healthy`
+3. Optionally write a standalone discovery file for review:
+   - `python -m job_scanner sources discover --output config/sources.discovered.yaml --limit 40`
+4. Append top candidates to `config/sources.yaml`:
+   - `python -m job_scanner sources discover --append --enable --limit 25`
+5. Re-run strict validation before deep scans.
+
+Discovery options:
+
+- `--type`: filter catalog by source type (`greenhouse`, `lever`, `ashby`, `generic_json`, `rss`, etc.).
+- `--validate`: check live endpoint and parser health for candidates.
+- `--only-healthy`: when validating, keep only healthy candidates in output.
+- `--criteria-markdown`: markdown keyword source (defaults to `ai-job-scan.md`).
+
+Current built-in discovery catalog focuses on:
+
+- ATS company feeds: Greenhouse, Lever, Ashby.
+- Multi-company structured feeds: generic JSON + RSS.
+- It does not include direct LinkedIn/Indeed scraping.
+
+Recommended weekly source expansion loop:
+
+1. `python -m job_scanner sources discover --limit 60`
+2. `python -m job_scanner sources discover --append --limit 20`
+3. `python -m job_scanner sources validate --profile deep --strict`
+4. `python -m job_scanner scan --profile deep`
 
 Discovery scoring uses:
 
