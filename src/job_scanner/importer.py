@@ -33,6 +33,11 @@ def _normalize_row_to_job(
     apply_url = _pick(row, ["apply_url", "url", "job_url", "link"])
     requisition_id = _pick(row, ["requisition_id", "job_id", "id", "external_id"])
     salary_text = _pick(row, ["salary", "compensation", "salary_range", "pay_range"])
+    base_min = _pick(row, ["base_min", "salary_min", "min_salary", "base_salary_min"])
+    base_max = _pick(row, ["base_max", "salary_max", "max_salary", "base_salary_max"])
+    bonus = _pick(row, ["bonus", "target_bonus", "annual_bonus"])
+    bonus_percent = _pick(row, ["bonus_percent", "target_bonus_percent"])
+    equity = _pick(row, ["equity", "equity_value", "rsu", "stock"])
 
     source_job_id = requisition_id or apply_url or f"import-row-{row_index}"
 
@@ -60,6 +65,11 @@ def _normalize_row_to_job(
         requisition_id=requisition_id or None,
         company=company,
         salary_text=salary_text or None,
+        base_min_hint=base_min or None,
+        base_max_hint=base_max or None,
+        bonus_hint=bonus or None,
+        bonus_percent_hint=bonus_percent or None,
+        equity_hint=equity or None,
         ingest_mode="import",
         import_batch_id=import_batch_id,
         data_quality_flags=quality_flags,

@@ -57,6 +57,20 @@ def scan(
         for source_name, error in result["source_errors"].items():
             console.print(f"- {source_name}: {error}", style="yellow")
 
+    health_gate = result.get("health_gate") or {}
+    if health_gate:
+        gate_status = "PASSED" if health_gate.get("gate_passed") else "FAILED"
+        console.print(
+            (
+                "\nSource health gate: "
+                f"{gate_status} | healthy={health_gate.get('healthy_sources', 0)}"
+                f"/{health_gate.get('total_live_sources', 0)}"
+                f" | required_min={health_gate.get('required_min', 0)}"
+                f" | strict={health_gate.get('strict', False)}"
+            ),
+            style="green" if health_gate.get("gate_passed") else "yellow",
+        )
+
     reports = result.get("reports") or {}
     if reports:
         console.print("\nReports generated:")
@@ -69,19 +83,27 @@ def validate_sources(
     root: str | None = typer.Option(None, help="Project root path"),
     profile: str = typer.Option("deep", "--profile", help="Scan profile context: quick|deep"),
     include_disabled: bool = typer.Option(False, "--include-disabled", help="Include disabled sources in validation"),
+    strict: bool | None = typer.Option(None, "--strict/--no-strict", help="Override strict validation mode"),
+    min_healthy: int | None = typer.Option(None, "--min-healthy", help="Override required healthy live source count"),
 ) -> None:
     """Preflight source endpoints and schema reachability."""
     config = _load_config(root)
-    results = validate_sources_for_profile(
+    bundle = validate_sources_for_profile(
         config,
         only_enabled=not include_disabled,
         profile_name=profile,
+        strict=strict,
+        min_healthy=min_healthy,
     )
+    results = bundle["results"]
+    health_gate = bundle["health_gate"]
+    strict_mode = bundle["strict"]
 
-    table = Table(title=f"Source Validation ({profile})")
+    table = Table(title=f"Source Validation ({profile}, strict={strict_mode})")
     table.add_column("Source")
     table.add_column("Type")
     table.add_column("HTTP")
+    table.add_column("Parsed")
     table.add_column("Status")
     table.add_column("Latency ms")
     table.add_column("Endpoint")
@@ -95,12 +117,21 @@ def validate_sources(
             item.source_name,
             item.source_type.value,
             str(item.http_status or "-"),
+            str(item.parse_count),
             status_text,
             str(item.latency_ms),
             item.endpoint,
         )
 
     console.print(table)
+    console.print(
+        (
+            f"Health gate: {'PASSED' if health_gate['gate_passed'] else 'FAILED'}"
+            f" | healthy={health_gate['healthy_sources']}/{health_gate['total_live_sources']}"
+            f" | required_min={health_gate['required_min']}"
+        ),
+        style="green" if health_gate["gate_passed"] else "yellow",
+    )
     if failures:
         console.print(f"Validation failures: {failures}", style="yellow")
     else:
@@ -130,6 +161,16 @@ def import_jobs(
         f"Raw: {result['raw_count']} | Normalized: {result['normalized_count']} | Scored: {result['scored_count']}"
     )
     console.print(f"Raw snapshot: {result['raw_snapshot']}")
+    health_gate = result.get("health_gate") or {}
+    if health_gate:
+        console.print(
+            (
+                f"Source health gate: {'PASSED' if health_gate['gate_passed'] else 'FAILED'}"
+                f" | healthy={health_gate['healthy_sources']}/{health_gate['total_live_sources']}"
+                f" | required_min={health_gate['required_min']}"
+            ),
+            style="green" if health_gate.get("gate_passed") else "yellow",
+        )
     reports = result.get("reports") or {}
     if reports:
         console.print("\nReports generated:")
@@ -144,6 +185,16 @@ def report(root: str | None = typer.Option(None, help="Project root path")) -> N
     result = generate_report_for_latest_scan(config)
 
     console.print(f"Report generated for scan [bold]{result['scan_id']}[/bold]")
+    health_gate = result.get("health_gate") or {}
+    if health_gate:
+        console.print(
+            (
+                f"Source health gate: {'PASSED' if health_gate['gate_passed'] else 'FAILED'}"
+                f" | healthy={health_gate['healthy_sources']}/{health_gate['total_live_sources']}"
+                f" | required_min={health_gate['required_min']}"
+            ),
+            style="green" if health_gate.get("gate_passed") else "yellow",
+        )
     for name, path in result["reports"].items():
         console.print(f"- {name}: {path}")
 

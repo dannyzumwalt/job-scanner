@@ -4,7 +4,7 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from ..http_client import HttpFetcher
 from ..models import NormalizedJob, RawJob, SourceConfig
-from ..utils import compact_whitespace
+from ..utils import compact_whitespace, extract_by_path, value_as_text
 from .common import build_normalized_job
 
 
@@ -37,23 +37,46 @@ def resolve_lever_endpoint(source: SourceConfig) -> str:
 
 def parse_lever_job(source: SourceConfig, posting: dict) -> NormalizedJob:
     template = source.parser_template or {}
-    title = compact_whitespace(posting.get(template.get("title_field", "text")) or posting.get("title") or "")
-    description = posting.get(template.get("description_field", "descriptionPlain")) or posting.get("description") or ""
-    categories = posting.get("categories") or {}
-    location = compact_whitespace(categories.get("location") or "")
+    title = compact_whitespace(
+        value_as_text(
+            extract_by_path(posting, template.get("title_field", "text"), default="")
+            or extract_by_path(posting, "title", default="")
+        )
+    )
+    description = value_as_text(
+        extract_by_path(posting, template.get("description_field", "descriptionPlain"), default="")
+        or extract_by_path(posting, "description", default="")
+    )
+    location = compact_whitespace(
+        value_as_text(extract_by_path(posting, template.get("location_field", "categories.location"), default=""))
+    )
 
-    apply_url = posting.get(template.get("apply_url_field", "hostedUrl")) or posting.get("applyUrl")
-    requisition_id = str(posting.get(template.get("requisition_id_field", "requisitionCode")) or "") or None
+    apply_url = value_as_text(
+        extract_by_path(posting, template.get("apply_url_field", "hostedUrl"), default="")
+        or extract_by_path(posting, "applyUrl", default="")
+    )
+    requisition_id = value_as_text(
+        extract_by_path(posting, template.get("requisition_id_field", "requisitionCode"), default="")
+    ) or None
+    source_job_id = value_as_text(extract_by_path(posting, template.get("id_field", "id"), default=""))
+    salary_text = value_as_text(extract_by_path(posting, template.get("salary_text_field", "salary"), default=""))
+    company = value_as_text(extract_by_path(posting, template.get("company_field", "company"), default=source.name))
 
     return build_normalized_job(
         source,
-        source_job_id=str(posting.get(template.get("id_field", "id"))),
+        source_job_id=source_job_id,
         title=title,
         description=description,
         location=location,
-        apply_url=apply_url,
+        apply_url=apply_url or None,
         requisition_id=requisition_id,
-        salary_text=posting.get(template.get("salary_text_field", "")) if template.get("salary_text_field") else None,
+        company=company or source.name,
+        salary_text=salary_text or None,
+        base_min_hint=extract_by_path(posting, template.get("base_min_field"), default=None),
+        base_max_hint=extract_by_path(posting, template.get("base_max_field"), default=None),
+        bonus_hint=extract_by_path(posting, template.get("bonus_field"), default=None),
+        bonus_percent_hint=extract_by_path(posting, template.get("bonus_percent_field"), default=None),
+        equity_hint=extract_by_path(posting, template.get("equity_field"), default=None),
         raw_payload=posting,
     )
 

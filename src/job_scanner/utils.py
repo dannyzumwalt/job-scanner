@@ -8,8 +8,22 @@ from typing import Any
 MONEY_TOKEN_RE = re.compile(r"\$?\s*(\d{2,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*([kKmM])?")
 RANGE_SEP_RE = re.compile(r"\s*(?:-|to|–|—)\s*", re.IGNORECASE)
 TRAVEL_RE = re.compile(r"(\d{1,2})\s*%\s*(?:travel|of travel)", re.IGNORECASE)
+PERCENT_RE = re.compile(r"(\d{1,2}(?:\.\d+)?)\s*%")
+BONUS_PERCENT_RE = re.compile(
+    r"(?:bonus[^%]{0,20}?(\d{1,2}(?:\.\d+)?)\s*%|(\d{1,2}(?:\.\d+)?)\s*%[^.\n]{0,20}bonus)",
+    re.IGNORECASE,
+)
+BONUS_AMOUNT_RE = re.compile(
+    r"(?:bonus|target bonus|annual bonus)[^$]{0,30}\$?\s*(\d{2,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*([kKmM])?",
+    re.IGNORECASE,
+)
+EQUITY_AMOUNT_RE = re.compile(
+    r"(?:equity|rsu|stock(?:\s+grant)?)[^$]{0,30}\$?\s*(\d{2,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*([kKmM])?",
+    re.IGNORECASE,
+)
 MIN_REASONABLE_COMP = 30_000
 MAX_REASONABLE_COMP = 5_000_000
+MIN_REASONABLE_COMPONENT = 1_000
 
 
 def compact_whitespace(text: str | None) -> str:
@@ -155,6 +169,95 @@ def parse_comp_values_from_text(text: str | None) -> tuple[int | None, int | Non
     # Fallback: best-effort range from first two amounts.
     first_two = candidates[:2]
     return min(first_two), max(first_two)
+
+
+def parse_money_value(value: Any, *, min_value: int = MIN_REASONABLE_COMP) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        parsed = int(value)
+        if min_value <= parsed <= MAX_REASONABLE_COMP:
+            return parsed
+        return None
+
+    text = value_as_text(value)
+    if not text:
+        return None
+
+    match = MONEY_TOKEN_RE.search(text)
+    if not match:
+        return None
+    parsed = _money_to_int(match.group(1), match.group(2))
+    if min_value <= parsed <= MAX_REASONABLE_COMP:
+        return parsed
+    return None
+
+
+def parse_percent_value(value: Any) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        pct = float(value)
+        if 0.0 <= pct <= 100.0:
+            return pct
+        return None
+
+    text = value_as_text(value)
+    if not text:
+        return None
+    match = PERCENT_RE.search(text)
+    if not match:
+        return None
+    pct = float(match.group(1))
+    if 0.0 <= pct <= 100.0:
+        return pct
+    return None
+
+
+def extract_bonus_percent(text: str | None) -> float | None:
+    if not text:
+        return None
+    match = BONUS_PERCENT_RE.search(text)
+    if not match:
+        return None
+    captured = match.group(1) or match.group(2)
+    if captured is None:
+        return None
+    try:
+        pct = float(captured)
+    except ValueError:
+        return parse_percent_value(captured)
+    if 0.0 <= pct <= 100.0:
+        return pct
+    return None
+
+
+def extract_bonus_amount(text: str | None) -> int | None:
+    if not text:
+        return None
+    match = BONUS_AMOUNT_RE.search(text)
+    if not match:
+        return None
+    amount = _money_to_int(match.group(1), match.group(2))
+    if MIN_REASONABLE_COMPONENT <= amount <= MAX_REASONABLE_COMP:
+        return amount
+    return None
+
+
+def extract_equity_amount(text: str | None) -> int | None:
+    if not text:
+        return None
+    match = EQUITY_AMOUNT_RE.search(text)
+    if not match:
+        return None
+    amount = _money_to_int(match.group(1), match.group(2))
+    if MIN_REASONABLE_COMPONENT <= amount <= MAX_REASONABLE_COMP:
+        return amount
+    return None
 
 
 def estimate_total_comp(

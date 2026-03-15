@@ -53,6 +53,11 @@ def parse_generic_json_job(source: SourceConfig, item: dict) -> NormalizedJob:
         requisition_id=requisition_id or None,
         company=company or source.name,
         salary_text=salary_text or None,
+        base_min_hint=extract_by_path(item, template.get("base_min_field"), default=None),
+        base_max_hint=extract_by_path(item, template.get("base_max_field"), default=None),
+        bonus_hint=extract_by_path(item, template.get("bonus_field"), default=None),
+        bonus_percent_hint=extract_by_path(item, template.get("bonus_percent_field"), default=None),
+        equity_hint=extract_by_path(item, template.get("equity_field"), default=None),
         raw_payload=item,
     )
 

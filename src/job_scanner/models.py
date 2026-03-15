@@ -102,6 +102,8 @@ class IngestionConfig(BaseModel):
 class ScanProfileSettings(BaseModel):
     max_sources: int | None = None
     validate_sources: bool = True
+    strict_source_validation: bool = False
+    min_healthy_sources: int = 0
     resume_enabled: bool = True
     include_source_types: list[SourceType] = Field(default_factory=list)
     request_timeout_seconds_override: float | None = None
@@ -112,6 +114,8 @@ class ScanProfiles(BaseModel):
         default_factory=lambda: ScanProfileSettings(
             max_sources=8,
             validate_sources=True,
+            strict_source_validation=False,
+            min_healthy_sources=0,
             resume_enabled=False,
         )
     )
@@ -119,6 +123,8 @@ class ScanProfiles(BaseModel):
         default_factory=lambda: ScanProfileSettings(
             max_sources=None,
             validate_sources=True,
+            strict_source_validation=True,
+            min_healthy_sources=15,
             resume_enabled=True,
         )
     )
@@ -272,8 +278,15 @@ class SourceValidationResult(BaseModel):
     source_name: str
     source_type: SourceType
     endpoint: str
+    strict: bool = False
     ok: bool
+    healthy: bool = False
+    template_ok: bool = True
+    schema_ok: bool = True
+    required_fields_ok: bool = True
+    parse_count: int = 0
     http_status: int | None = None
     error_class: str | None = None
     error: str | None = None
     latency_ms: int = 0
+    warnings: list[str] = Field(default_factory=list)

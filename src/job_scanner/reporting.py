@@ -96,6 +96,7 @@ def render_markdown_report(
     *,
     scan_id: int,
     source_health: list[dict[str, Any]] | None = None,
+    health_gate: dict[str, Any] | None = None,
     trend_notes: list[str] | None = None,
     top_matches_target: int = 10,
     potential_matches_target: int = 10,
@@ -143,6 +144,8 @@ def render_markdown_report(
 
     lines.append("## Potential Matches (Needs Review)")
     lines.append("")
+    lines.append("_Worth Reviewing_")
+    lines.append("")
     if not potential:
         lines.append("No potential matches in this scan.")
     for job in potential:
@@ -188,6 +191,16 @@ def render_markdown_report(
     lines.append("")
     lines.append("## Source Health")
     lines.append("")
+    gate = health_gate or {}
+    if gate:
+        lines.append(
+            "- health gate: "
+            f"healthy_sources={gate.get('healthy_sources', 0)}/"
+            f"{gate.get('total_live_sources', 0)} | "
+            f"required_min={gate.get('required_min', 0)} | "
+            f"gate_passed={gate.get('gate_passed', True)} | "
+            f"strict={gate.get('strict', False)}"
+        )
     lines.append(
         f"- sources checked: {health['total']} | success: {health['success']} | failed: {health['failed']} | success rate: {health['success_rate']}%"
     )
@@ -212,21 +225,24 @@ def write_reports(
     scored_jobs: list[dict[str, Any]],
     *,
     source_health: list[dict[str, Any]] | None = None,
+    health_gate: dict[str, Any] | None = None,
     trend_notes: list[str] | None = None,
     top_matches_target: int = 10,
     potential_matches_target: int = 10,
     reject_list_max: int = 30,
+    generated_at: datetime | None = None,
 ) -> dict[str, str]:
     out_dir = Path(report_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    now = datetime.now(UTC)
+    now = generated_at or datetime.now(UTC)
     timestamp = now.strftime("%Y%m%dT%H%M%SZ")
 
     markdown = render_markdown_report(
         scored_jobs,
         scan_id=scan_id,
         source_health=source_health,
+        health_gate=health_gate,
         trend_notes=trend_notes,
         top_matches_target=top_matches_target,
         potential_matches_target=potential_matches_target,
@@ -286,6 +302,7 @@ def write_reports(
         "market_notes": build_market_notes(scored_jobs),
         "trend_notes": trend_notes or [],
         "source_health": source_health or [],
+        "health_gate": health_gate or {},
     }
 
     latest_json.write_text(json.dumps(json_payload, indent=2), encoding="utf-8")
