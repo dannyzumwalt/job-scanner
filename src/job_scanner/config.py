@@ -42,7 +42,20 @@ def load_app_config(root_dir: str | Path | None = None) -> AppConfig:
     root = Path(root_dir or os.getcwd()).resolve()
 
     profile_path = Path(os.getenv("JOB_SCANNER_PROFILE_PATH", root / "config" / "search_profile.yaml"))
-    sources_path = Path(os.getenv("JOB_SCANNER_SOURCES_PATH", root / "config" / "sources.yaml"))
+    default_sources_path = root / "config" / "sources.yaml"
+    sample_sources_path = root / "config" / "sources.yaml.sample"
+    env_sources_path = os.getenv("JOB_SCANNER_SOURCES_PATH")
+    if env_sources_path:
+        load_sources_path = Path(env_sources_path)
+        configured_sources_path = load_sources_path
+    else:
+        configured_sources_path = default_sources_path
+        if default_sources_path.exists():
+            load_sources_path = default_sources_path
+        elif sample_sources_path.exists():
+            load_sources_path = sample_sources_path
+        else:
+            load_sources_path = default_sources_path
     db_path = Path(os.getenv("JOB_SCANNER_DB_PATH", root / "data" / "processed" / "job_scanner.db"))
     report_dir = Path(os.getenv("JOB_SCANNER_REPORT_DIR", root / "data" / "reports"))
     raw_dir = Path(root / "data" / "raw")
@@ -53,13 +66,13 @@ def load_app_config(root_dir: str | Path | None = None) -> AppConfig:
     processed_dir.mkdir(parents=True, exist_ok=True)
 
     profile = load_search_profile(profile_path)
-    sources = load_sources(sources_path)
+    sources = load_sources(load_sources_path)
 
     return AppConfig(
         root_dir=str(root),
         db_path=str(db_path),
         search_profile_path=str(profile_path),
-        sources_path=str(sources_path),
+        sources_path=str(configured_sources_path),
         report_dir=str(report_dir),
         raw_dir=str(raw_dir),
         processed_dir=str(processed_dir),

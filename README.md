@@ -19,7 +19,8 @@ Version: `1.0.0`
 ## Project layout
 
 - `config/search_profile.yaml`: scoring and preference profile.
-- `config/sources.yaml`: enabled sources and source metadata.
+- `config/sources.yaml.sample`: tracked starter source catalog.
+- `config/sources.yaml`: local source config (untracked/private).
 - `src/job_scanner/`: scanner package and CLI.
 - `data/processed/job_scanner.db`: SQLite database.
 - `data/reports/`: latest and timestamped report files.
@@ -47,12 +48,23 @@ pip install -e .
 pip install -e .[dev]
 ```
 
+4. Create local sources config:
+
+```bash
+cp config/sources.yaml.sample config/sources.yaml
+```
+
 ## Configuration
 
 Edit these files without changing code:
 
 - `config/search_profile.yaml`
-- `config/sources.yaml`
+- `config/sources.yaml` (local, untracked)
+
+Notes:
+
+- If `config/sources.yaml` is missing, the app automatically falls back to `config/sources.yaml.sample`.
+- `sources discover --append` writes to `config/sources.yaml` so your local source list can stay private.
 
 Important knobs:
 

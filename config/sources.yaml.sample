@@ -1,0 +1,170 @@
+sources:
+  - name: "Datadog"
+    type: "greenhouse"
+    format: "greenhouse"
+    enabled: true
+    priority: 10
+    expected_status: 200
+    url: "https://boards.greenhouse.io/datadog"
+    notes: "High-volume infra and reliability roles"
+
+  - name: "Cloudflare"
+    type: "greenhouse"
+    format: "greenhouse"
+    enabled: true
+    priority: 11
+    expected_status: 200
+    url: "https://boards.greenhouse.io/cloudflare"
+    notes: "Strong distributed systems and SRE roles"
+
+  - name: "Airbnb"
+    type: "greenhouse"
+    format: "greenhouse"
+    enabled: true
+    priority: 12
+    expected_status: 200
+    url: "https://boards.greenhouse.io/airbnb"
+    notes: "Distributed systems and platform engineering roles"
+
+  - name: "Figma"
+    type: "greenhouse"
+    format: "greenhouse"
+    enabled: true
+    priority: 13
+    expected_status: 200
+    url: "https://boards.greenhouse.io/figma"
+    notes: "High-end systems and data roles"
+
+  - name: "MongoDB"
+    type: "greenhouse"
+    format: "greenhouse"
+    enabled: true
+    priority: 14
+    expected_status: 200
+    url: "https://boards.greenhouse.io/mongodb"
+    notes: "Database and distributed systems roles"
+
+  - name: "Elastic"
+    type: "greenhouse"
+    format: "greenhouse"
+    enabled: true
+    priority: 15
+    expected_status: 200
+    url: "https://boards.greenhouse.io/elastic"
+    notes: "Search and infra platform opportunities"
+
+  - name: "Twilio"
+    type: "greenhouse"
+    format: "greenhouse"
+    enabled: true
+    priority: 16
+    expected_status: 200
+    url: "https://boards.greenhouse.io/twilio"
+    notes: "Infrastructure and network-adjacent roles"
+
+  - name: "Palantir"
+    type: "lever"
+    format: "lever"
+    enabled: true
+    priority: 20
+    expected_status: 200
+    url: "https://jobs.lever.co/palantir"
+    notes: "Infrastructure and distributed systems opportunities"
+
+  - name: "Spotify"
+    type: "lever"
+    format: "lever"
+    enabled: true
+    priority: 21
+    expected_status: 200
+    url: "https://jobs.lever.co/spotify"
+    notes: "Platform and backend IC opportunities"
+
+  - name: "Netflix"
+    type: "lever"
+    format: "lever"
+    enabled: true
+    priority: 22
+    expected_status: 200
+    url: "https://jobs.lever.co/netflix"
+    notes: "Large-scale platform engineering opportunities"
+
+  - name: "Remotive"
+    type: "generic_json"
+    format: "json"
+    enabled: false
+    priority: 90
+    expected_status: 200
+    url: "https://remotive.com/api/remote-jobs"
+    notes: "Multi-company remote jobs feed"
+    parser_template:
+      items_path: "jobs"
+      id_field: "id"
+      title_field: "title"
+      description_field: "description"
+      location_field: "candidate_required_location"
+      apply_url_field: "url"
+      company_field: "company_name"
+      salary_text_field: "salary"
+
+  - name: "RemoteOK API"
+    type: "generic_json"
+    format: "json"
+    enabled: false
+    priority: 91
+    expected_status: 200
+    url: "https://remoteok.com/api"
+    notes: "Multi-company remote jobs JSON feed"
+    parser_template:
+      id_field: "id"
+      title_field: "position"
+      description_field: "description"
+      location_field: "location"
+      apply_url_field: "url"
+      company_field: "company"
+      salary_text_field: "salary"
+
+  - name: "We Work Remotely RSS"
+    type: "rss"
+    format: "rss"
+    enabled: false
+    priority: 92
+    expected_status: 200
+    url: "https://weworkremotely.com/categories/remote-programming-jobs.rss"
+    notes: "Multi-company remote jobs RSS"
+
+  - name: "Remote OK RSS"
+    type: "rss"
+    format: "rss"
+    enabled: false
+    priority: 93
+    expected_status: 200
+    url: "https://remoteok.com/remote-dev-jobs.rss"
+    notes: "Remote development jobs RSS"
+
+  - name: "Example HTML Careers Page"
+    type: "generic_html"
+    format: "html"
+    enabled: false
+    priority: 95
+    expected_status: 200
+    url: "https://example.com/careers"
+    notes: "Opt-in static HTML parser template"
+    parser_template:
+      items_selector: ".job-card"
+      title_selector: ".job-title"
+      apply_url_selector: "a.apply-link"
+      apply_url_attr: "href"
+      location_selector: ".job-location"
+      description_selector: ".job-summary"
+      compensation_selector: ".job-compensation"
+      requisition_selector: ".job-id"
+
+  - name: "Example Ashby Company"
+    type: "ashby"
+    format: "ashby"
+    enabled: false
+    priority: 96
+    expected_status: 200
+    url: "https://jobs.ashbyhq.com/example"
+    notes: "Ashby parser is available but slug verification is required"
